@@ -7,6 +7,8 @@ BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 FACES_DIR = DATA_DIR / "faces"
 ENCODINGS_FILE = DATA_DIR / "encodings.pkl"
+ATTENDANCE_FILE = DATA_DIR / "attendance.csv"
+CHECKIN_DIR = DATA_DIR / "checkins"
 
 # Thư mục chứa model YOLO
 MODELS_DIR = BASE_DIR / "models"
@@ -20,7 +22,7 @@ CAMERA_INDEX = 0
 
 # Bộ dò khuôn mặt (Face Detection Backend):
 # 'yolo': Sử dụng YOLOv11 Face (cực nhạy với góc nghiêng, tốc độ cao)
-# 'hog': Sử dụng dlib HOG truyền thống (dự phòng nếu không có model YOLO)
+# 'hog': Sử dụng dlib HOG truyền thống (dự phòng)
 DETECTION_BACKEND = "yolo"
 
 # Độ tin cậy tối thiểu để YOLO chấp nhận một vùng là khuôn mặt
@@ -39,7 +41,12 @@ REGISTRATION_SAMPLES_COUNT = 20
 # Khoảng thời gian nghỉ tối thiểu giữa các lần lấy mẫu (giây) để người dùng kịp đổi góc mặt
 SAMPLE_INTERVAL_SECONDS = 0.35
 
+# Cấu hình Tự động Chấm công / Điểm danh
+CHECKIN_CONFIDENCE_THRESHOLD = 90.0  # Tỷ lệ % tối thiểu để bắt đầu giữ trạng thái
+CHECKIN_HOLD_SECONDS = 5.0          # Thời gian giữ liên tục (giây) để tự động dừng và chốt thành công
+
 # Tự động tạo thư mục nếu chưa có
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 FACES_DIR.mkdir(parents=True, exist_ok=True)
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
+CHECKIN_DIR.mkdir(parents=True, exist_ok=True)

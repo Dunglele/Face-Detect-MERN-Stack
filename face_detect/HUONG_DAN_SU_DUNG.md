@@ -52,14 +52,21 @@ python face_detect/app.py
 - Hệ thống tự động kiểm tra điều kiện khuôn mặt (chỉ chụp khi có đúng 1 khuôn mặt rõ nét, có độ trễ giữa các lần chụp để đa dạng hóa góc nhìn).
 - Toàn bộ vector đặc trưng sẽ được lưu vào file `data/encodings.pkl` và các ảnh mẫu lưu vào `data/faces/<tên>/`.
 
-### 2. Xác thực & Nhận diện qua Webcam
+### 2. Xác thực & Điểm danh chấm công tự động qua Webcam
 - Mở webcam nhận diện người dùng trong thời gian thực.
 - Khung nhận diện hiển thị:
   - Nếu trùng khớp: Khung viền xanh lá, hiển thị `[Tên người dùng] (Tỷ lệ %)`.
   - Nếu không xác định: Khung viền màu cam/đỏ, hiển thị `Unknown (Tỷ lệ %)`.
+- **Cơ chế Tự động Điểm danh Chấm công (Freeze Screen)**:
+  - Khi một người giữ khuôn mặt với tỷ lệ xác thực **>= 90% liên tục trong 5 giây**:
+    - Màn hình hiển thị thanh đếm thời gian thực `DANG XAC THUC: [Tên] | 3.2s / 5.0s (94.5%)`.
+    - Khi đủ 5 giây, hệ thống **tự động ngắt camera và giữ nguyên màn hình tại khoảnh khắc đó** (Freeze Frame).
+    - Hiển thị bảng thông báo trung tâm: `[V] CHẤM CÔNG THÀNH CÔNG!` kèm tên nhân viên, thời gian chính xác và độ tin cậy.
+    - Tự động ghi nhật ký vào file `data/attendance.csv` và lưu ảnh minh chứng vào `data/checkins/`.
+    - Màn hình giữ nguyên để nhân viên xem xác nhận; bấm phím bất kỳ trên bàn phím để quay lại menu.
 - Tối ưu hóa:
   - Xử lý xen kẽ frame và giảm tỷ lệ `FRAME_SCALE = 0.5` giúp tốc độ khung hình đạt **30+ FPS** mượt mà.
-  - Nhấn `Q` hoặc `ESC` trên cửa sổ camera để trở về menu.
+  - Nhấn `Q` hoặc `ESC` trên cửa sổ camera để trở về menu bất kỳ lúc nào.
   - Nhấn `S` để chụp ảnh lưu lại frame hiện tại.
 
 ### 3. Xem danh sách người dùng

@@ -26,3 +26,4 @@ Desktop.ini
 *.log
 *.tmp
 snapshot_*.jpg
+face_detect/data/checkins/
