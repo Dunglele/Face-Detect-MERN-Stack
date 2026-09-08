@@ -1,0 +1,28 @@
+# Môi trường ảo Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Byte-code / Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# IDEs & Editors
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# OS generated files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Temporary & Log files
+*.log
+*.tmp
+snapshot_*.jpg
