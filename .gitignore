@@ -27,3 +27,9 @@ Desktop.ini
 *.tmp
 snapshot_*.jpg
 face_detect/data/checkins/
+
+# Node.js / MERN Stack
+node_modules/
+dist/
+.env
+mern/backend/.env
