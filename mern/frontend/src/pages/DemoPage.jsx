@@ -3,18 +3,15 @@ import { Link } from 'react-router-dom';
 import {
   Camera,
   VideoOff,
-  Scan,
-  Sparkles,
+  Upload,
   CheckCircle2,
   AlertTriangle,
-  Upload,
-  Cpu,
-  RefreshCw,
-  ExternalLink,
-  ShieldAlert,
   ArrowRight,
   UserCheck,
-  Zap
+  Zap,
+  ArrowUpRight,
+  ShieldCheck,
+  Clock
 } from 'lucide-react';
 
 const API_BASE = 'http://localhost:5000/api';
@@ -25,7 +22,7 @@ export default function DemoPage() {
   const [isScanning, setIsScanning] = useState(false);
   const [cameraError, setCameraError] = useState('');
   
-  // Detection Results
+  // Results state
   const [detectionResult, setDetectionResult] = useState(null);
   const [uploadedImage, setUploadedImage] = useState(null);
   const [saveSuccess, setSaveSuccess] = useState('');
@@ -34,14 +31,12 @@ export default function DemoPage() {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
 
-  // Mock list of registered personnel in the face recognition model
   const registeredFaces = [
     { name: 'Nguyễn Tiến Dũng', dept: 'AI & Engineering', confidence: 96.8, id: 'EMP-001' },
     { name: 'Ngọc Khánh', dept: 'Product Design', confidence: 94.5, id: 'EMP-002' },
     { name: 'Trần Minh Hoàng', dept: 'Human Resources', confidence: 89.2, id: 'EMP-003' },
   ];
 
-  // Start Webcam
   const startCamera = async () => {
     setCameraError('');
     try {
@@ -56,13 +51,12 @@ export default function DemoPage() {
       setIsCameraActive(true);
       triggerAutoScan();
     } catch (err) {
-      console.error('Camera access error:', err);
+      console.error('Camera error:', err);
       setCameraError('Không thể mở Camera. Vui lòng cấp quyền truy cập webcam trên trình duyệt của bạn.');
       setIsCameraActive(false);
     }
   };
 
-  // Stop Webcam
   const stopCamera = () => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
@@ -75,37 +69,33 @@ export default function DemoPage() {
     setIsScanning(false);
   };
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       stopCamera();
     };
   }, []);
 
-  // Simulate scanning action
   const triggerAutoScan = () => {
     setIsScanning(true);
     setDetectionResult(null);
     setSaveSuccess('');
 
     setTimeout(() => {
-      // Pick a match from registered faces
       const matched = registeredFaces[Math.floor(Math.random() * registeredFaces.length)];
       setDetectionResult({
         name: matched.name,
         confidence: +(matched.confidence - Math.random() * 2).toFixed(1),
-        faceBox: { top: '22%', left: '30%', width: '40%', height: '56%' },
-        inferenceTime: Math.floor(11 + Math.random() * 8), // ms
+        faceBox: { top: '20%', left: '28%', width: '44%', height: '60%' },
+        inferenceTime: Math.floor(10 + Math.random() * 6),
         status: 'Match Verified',
         angle: 'Trực diện (0°)',
         department: matched.dept,
         empId: matched.id,
       });
       setIsScanning(false);
-    }, 1600);
+    }, 1400);
   };
 
-  // Handle uploaded image
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -116,23 +106,22 @@ export default function DemoPage() {
       setSaveSuccess('');
 
       setTimeout(() => {
-        const matched = registeredFaces[0]; // Nguyen Tien Dung
+        const matched = registeredFaces[0];
         setDetectionResult({
           name: matched.name,
           confidence: 97.4,
-          faceBox: { top: '18%', left: '28%', width: '44%', height: '58%' },
-          inferenceTime: 14,
+          faceBox: { top: '16%', left: '26%', width: '48%', height: '64%' },
+          inferenceTime: 12,
           status: 'Match Verified',
-          angle: 'Đa góc độ hợp lệ',
+          angle: 'Góc nghiêng hợp lệ',
           department: matched.dept,
           empId: matched.id,
         });
         setIsScanning(false);
-      }, 1400);
+      }, 1200);
     }
   };
 
-  // Push detected check-in to Express Backend & MongoDB
   const handleRecordAttendance = async () => {
     if (!detectionResult) return;
     setSubmittingLog(true);
@@ -153,7 +142,7 @@ export default function DemoPage() {
       });
 
       if (res.ok) {
-        setSaveSuccess(`Đã ghi nhận điểm danh cho "${detectionResult.name}" vào CSDL MongoDB thành công!`);
+        setSaveSuccess(`Đã ghi nhận điểm danh cho "${detectionResult.name}" vào CSDL MongoDB thành công.`);
       } else {
         setSaveSuccess(`Đã lưu phiên điểm danh mô phỏng cho "${detectionResult.name}".`);
       }
@@ -165,45 +154,50 @@ export default function DemoPage() {
   };
 
   return (
-    <div style={{ maxWidth: '1280px', margin: '0 auto', width: '100%', padding: '32px 24px' }}>
+    <div style={{ maxWidth: '1280px', margin: '0 auto', width: '100%', padding: '48px 24px 80px' }}>
       {/* Header */}
-      <div style={{ marginBottom: '28px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-          <span className="badge badge-blue">
-            <Sparkles size={14} /> AI Testing Studio
+      <div style={{ marginBottom: '36px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+          <span className="badge-minimal">
+            <ShieldCheck size={14} /> AI Testing Studio
           </span>
-          <span className="badge badge-purple">
-            <Cpu size={14} /> YOLOv11n-face.pt
+          <span className="badge-tag active">
+            YOLOv11n-face &bull; dlib ResNet
           </span>
         </div>
-        <h1 style={{ fontSize: '2.2rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
-          Trải Nghiệm Thử Nghiệm <span className="text-gradient-cyan-blue">Mô Hình Nhận Diện</span>
+        <h1
+          style={{
+            fontSize: 'clamp(2.2rem, 4vw, 3rem)',
+            fontWeight: 700,
+            letterSpacing: '-0.035em',
+            marginBottom: '12px',
+          }}
+        >
+          Thử nghiệm mô hình{' '}
+          <span className="font-accent-italic" style={{ fontSize: '1.15em', fontWeight: 400 }}>
+            nhận diện
+          </span>{' '}
+          khuôn mặt
         </h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', maxWidth: '750px', marginTop: '6px' }}>
-          Kiểm tra khả năng tìm kiếm tọa độ mặt và so khớp vector đặc trưng 128 chiều. 
-          Bạn có thể mở trực tiếp webcam hoặc tải ảnh lên để kiểm tra độ nhạy và tỷ lệ khớp.
+        <p style={{ color: 'var(--text-secondary)', fontSize: '1.0625rem', maxWidth: '72ch', lineHeight: 1.6 }}>
+          Kiểm tra trực tiếp độ nhạy và thời gian suy luận của mạng nơ-ron AI. 
+          Hệ thống sẽ định vị khuôn mặt, căn chỉnh góc xoay và so sánh vector đặc trưng 128 chiều.
         </p>
       </div>
 
-      {/* Mode Switcher */}
-      <div
-        style={{
-          display: 'flex',
-          gap: '12px',
-          marginBottom: '28px',
-        }}
-      >
+      {/* Mode Switcher Tabs */}
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '32px' }}>
         <button
           onClick={() => {
             setActiveMode('webcam');
             setDetectionResult(null);
             setSaveSuccess('');
           }}
-          className={activeMode === 'webcam' ? 'btn-glass-primary' : 'btn-glass-secondary'}
-          style={{ padding: '10px 20px' }}
+          className={activeMode === 'webcam' ? 'btn-primary' : 'btn-outline'}
+          style={{ padding: '10px 24px' }}
         >
-          <Camera size={18} />
-          Webcam Trực Tiếp (Live)
+          <Camera size={16} />
+          Webcam trực tiếp
         </button>
 
         <button
@@ -213,11 +207,11 @@ export default function DemoPage() {
             setDetectionResult(null);
             setSaveSuccess('');
           }}
-          className={activeMode === 'upload' ? 'btn-glass-primary' : 'btn-glass-secondary'}
-          style={{ padding: '10px 20px' }}
+          className={activeMode === 'upload' ? 'btn-primary' : 'btn-outline'}
+          style={{ padding: '10px 24px' }}
         >
-          <Upload size={18} />
-          Tải Ảnh Khuôn Mặt Lên
+          <Upload size={16} />
+          Tải ảnh mẫu lên
         </button>
       </div>
 
@@ -225,58 +219,61 @@ export default function DemoPage() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-          gap: '24px',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+          gap: '32px',
           alignItems: 'start',
         }}
       >
-        {/* Left Column: Camera / Image Viewport */}
-        <div className="glass-card" style={{ padding: '24px', position: 'relative' }}>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '16px',
-            }}
-          >
+        {/* Left Column: Viewport */}
+        <div
+          className="minimal-card"
+          style={{
+            padding: '28px',
+            backgroundColor: '#ffffff',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span
-                className="pulse-indicator"
-                style={{ background: isCameraActive ? '#10b981' : '#94a3b8' }}
+                style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  backgroundColor: isCameraActive ? '#108a55' : '#9295a3',
+                }}
               />
-              <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>
+              <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>
                 {activeMode === 'webcam'
                   ? isCameraActive
-                    ? 'Camera Hoạt Động (Live Stream)'
-                    : 'Camera Đang Tắt'
-                  : 'Chế độ Tải Ảnh'}
+                    ? 'Camera đang hoạt động (Live 30 FPS)'
+                    : 'Camera đang tắt'
+                  : 'Chế độ phân tích ảnh tĩnh'}
               </span>
             </div>
 
             {activeMode === 'webcam' && (
               <div>
                 {!isCameraActive ? (
-                  <button className="btn-glass-cyan" onClick={startCamera} style={{ padding: '7px 16px', fontSize: '0.85rem' }}>
-                    <Camera size={15} /> Bật Camera
+                  <button className="btn-primary" onClick={startCamera} style={{ padding: '8px 18px', fontSize: '0.8125rem' }}>
+                    <Camera size={14} /> Bật Camera
                   </button>
                 ) : (
-                  <button className="btn-glass-secondary" onClick={stopCamera} style={{ padding: '7px 16px', fontSize: '0.85rem' }}>
-                    <VideoOff size={15} /> Tắt Camera
+                  <button className="btn-outline" onClick={stopCamera} style={{ padding: '8px 18px', fontSize: '0.8125rem' }}>
+                    <VideoOff size={14} /> Tắt Camera
                   </button>
                 )}
               </div>
             )}
           </div>
 
-          {/* Viewport Box */}
+          {/* Viewport Frame */}
           <div
             style={{
               width: '100%',
               height: '420px',
-              borderRadius: '14px',
-              background: '#070a10',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '20px',
+              backgroundColor: 'var(--bg-muted)',
+              border: '1px solid var(--border-subtle)',
               position: 'relative',
               overflow: 'hidden',
               display: 'flex',
@@ -284,10 +281,10 @@ export default function DemoPage() {
               justifyContent: 'center',
             }}
           >
-            {/* Laser scanning bar when scanning */}
-            {isScanning && <div className="scanner-laser" />}
+            {/* Laser scanning line */}
+            {isScanning && <div className="minimal-scanner-laser" />}
 
-            {/* Mode: Webcam */}
+            {/* Webcam video */}
             {activeMode === 'webcam' && (
               <>
                 <video
@@ -300,7 +297,7 @@ export default function DemoPage() {
                     height: '100%',
                     objectFit: 'cover',
                     display: isCameraActive ? 'block' : 'none',
-                    transform: 'scaleX(-1)', // mirror for natural feel
+                    transform: 'scaleX(-1)',
                   }}
                 />
 
@@ -308,40 +305,40 @@ export default function DemoPage() {
                   <div style={{ textAlign: 'center', padding: '24px' }}>
                     <div
                       style={{
-                        width: '64px',
-                        height: '64px',
-                        borderRadius: '20px',
-                        background: 'rgba(255, 255, 255, 0.04)',
+                        width: '56px',
+                        height: '56px',
+                        borderRadius: '16px',
+                        backgroundColor: '#ffffff',
+                        border: '1px solid var(--border-subtle)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         margin: '0 auto 16px',
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
                       }}
                     >
-                      <Camera size={30} color="var(--text-muted)" />
+                      <Camera size={26} color="var(--text-muted)" />
                     </div>
-                    <p style={{ fontWeight: 600, color: '#f1f5f9', marginBottom: '6px' }}>
-                      Camera chưa được kích hoạt
+                    <p style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                      Webcam chưa kích hoạt
                     </p>
-                    <p style={{ fontSize: '0.825rem', color: 'var(--text-muted)', marginBottom: '18px' }}>
-                      Nhấn nút bên dưới để cấp quyền webcam và bắt đầu nhận diện
+                    <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '20px' }}>
+                      Nhấn nút bên dưới để cấp quyền camera trên trình duyệt
                     </p>
-                    <button className="btn-glass-cyan" onClick={startCamera}>
-                      <Camera size={16} /> Bật Camera Ngay
+                    <button className="btn-primary" onClick={startCamera}>
+                      <Camera size={15} /> Bật Camera Ngay
                     </button>
                   </div>
                 )}
               </>
             )}
 
-            {/* Mode: Image Upload */}
+            {/* Image upload preview */}
             {activeMode === 'upload' && (
               <>
                 {uploadedImage ? (
                   <img
                     src={uploadedImage}
-                    alt="Uploaded face sample"
+                    alt="Face preview"
                     style={{
                       width: '100%',
                       height: '100%',
@@ -356,18 +353,17 @@ export default function DemoPage() {
                       alignItems: 'center',
                       justifyContent: 'center',
                       cursor: 'pointer',
-                      padding: '30px',
-                      textAlign: 'center',
                       width: '100%',
                       height: '100%',
+                      padding: '24px',
                     }}
                   >
-                    <Upload size={36} color="#38bdf8" style={{ marginBottom: '12px' }} />
-                    <p style={{ fontWeight: 600, color: '#fff', marginBottom: '4px' }}>
+                    <Upload size={32} color="var(--text-muted)" style={{ marginBottom: '12px' }} />
+                    <p style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
                       Nhấp để chọn ảnh chân dung
                     </p>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      Định dạng JPG, PNG (khuyên dùng ảnh rõ mặt)
+                    <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+                      Định dạng JPG, PNG (rõ nét khuôn mặt)
                     </p>
                     <input
                       type="file"
@@ -380,91 +376,80 @@ export default function DemoPage() {
               </>
             )}
 
-            {/* Simulated YOLOv11 Bounding Box Overlay */}
+            {/* Bounding box */}
             {detectionResult && (
               <div
-                className="face-bounding-box"
+                className="minimal-face-box"
                 style={{
                   top: detectionResult.faceBox.top,
                   left: detectionResult.faceBox.left,
                   width: detectionResult.faceBox.width,
                   height: detectionResult.faceBox.height,
-                  borderColor: detectionResult.confidence > 85 ? '#10b981' : '#f59e0b',
                 }}
               >
-                {/* Header Tag on Box */}
                 <div
                   style={{
                     position: 'absolute',
-                    top: '-32px',
+                    top: '-30px',
                     left: 0,
-                    background: detectionResult.confidence > 85 ? 'rgba(16, 185, 129, 0.9)' : 'rgba(245, 158, 11, 0.9)',
-                    backdropFilter: 'blur(8px)',
-                    color: '#000',
-                    fontWeight: 800,
+                    backgroundColor: '#1a1a1a',
+                    color: '#ffffff',
                     fontSize: '0.75rem',
+                    fontWeight: 600,
+                    fontFamily: 'var(--font-mono)',
                     padding: '3px 8px',
                     borderRadius: '6px',
-                    whiteSpace: 'nowrap',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '4px',
+                    whiteSpace: 'nowrap',
                   }}
                 >
-                  <CheckCircle2 size={12} />
+                  <CheckCircle2 size={12} color="#ffffff" />
                   {detectionResult.name} ({detectionResult.confidence}%)
                 </div>
               </div>
             )}
 
-            {/* Error message */}
+            {/* Camera error */}
             {cameraError && (
               <div
                 style={{
                   position: 'absolute',
                   inset: '20px',
-                  background: 'rgba(239, 68, 68, 0.15)',
-                  border: '1px solid rgba(239, 68, 68, 0.3)',
-                  backdropFilter: 'blur(10px)',
-                  borderRadius: '12px',
+                  backgroundColor: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  borderRadius: '14px',
                   padding: '16px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '12px',
-                  color: '#fca5a5',
-                  fontSize: '0.85rem',
+                  color: '#991b1b',
+                  fontSize: '0.875rem',
                 }}
               >
-                <AlertTriangle size={24} color="#ef4444" style={{ flexShrink: 0 }} />
+                <AlertTriangle size={20} color="#dc2626" style={{ flexShrink: 0 }} />
                 <span>{cameraError}</span>
               </div>
             )}
           </div>
 
-          {/* Controls below viewport */}
-          <div
-            style={{
-              display: 'flex',
-              gap: '12px',
-              marginTop: '18px',
-              flexWrap: 'wrap',
-              justifyContent: 'space-between',
-            }}
-          >
+          {/* Action buttons */}
+          <div style={{ marginTop: '20px', display: 'flex', gap: '12px' }}>
             {activeMode === 'webcam' && isCameraActive && (
               <button
-                className="btn-glass-primary"
+                className="btn-primary"
                 onClick={triggerAutoScan}
                 disabled={isScanning}
-                style={{ flex: 1, minWidth: '180px' }}
+                style={{ flex: 1 }}
               >
-                <Scan size={17} />
-                {isScanning ? 'Đang phân tích YOLO...' : 'Quét & Nhận diện'}
+                <Zap size={16} />
+                {isScanning ? 'Đang trích xuất vector...' : 'Quét & Nhận diện'}
               </button>
             )}
 
             {activeMode === 'upload' && (
-              <label className="btn-glass-secondary" style={{ cursor: 'pointer', flex: 1 }}>
+              <label className="btn-outline" style={{ cursor: 'pointer', flex: 1, textAlign: 'center' }}>
                 <Upload size={16} /> Chọn ảnh khác
                 <input
                   type="file"
@@ -477,58 +462,49 @@ export default function DemoPage() {
           </div>
         </div>
 
-        {/* Right Column: AI Telemetry & Recognition Results */}
+        {/* Right Column: Telemetry & Results */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* Card: Recognition Telemetry */}
-          <div className="glass-card" style={{ padding: '24px' }}>
-            <h3
-              style={{
-                fontSize: '1.15rem',
-                fontWeight: 700,
-                marginBottom: '16px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-              }}
-            >
-              <Cpu size={18} color="#38bdf8" />
-              Chỉ Số Phân Tích Mô Hình (Telemetry)
+          <div className="minimal-card" style={{ padding: '32px 28px' }}>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '20px' }}>
+              Thông số phân tích AI
             </h3>
 
             {detectionResult ? (
               <div>
-                {/* Matched Name Card */}
+                {/* Result Card */}
                 <div
                   style={{
-                    background: 'rgba(16, 185, 129, 0.08)',
-                    border: '1px solid rgba(16, 185, 129, 0.25)',
-                    borderRadius: '14px',
-                    padding: '18px',
-                    marginBottom: '18px',
+                    backgroundColor: 'var(--bg-muted)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: '20px',
+                    padding: '20px',
+                    marginBottom: '24px',
                   }}
                 >
-                  <div style={{ fontSize: '0.75rem', color: '#34d399', fontWeight: 700, letterSpacing: '0.05em' }}>
-                    DANH TÍNH XÁC NHẬN
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-dim)', letterSpacing: '0.05em' }}>
+                    KẾT QUẢ KHỚP DANH TÍNH
                   </div>
-                  <div style={{ fontSize: '1.4rem', fontWeight: 800, marginTop: '4px', color: '#fff' }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 700, marginTop: '4px', letterSpacing: '-0.02em' }}>
                     {detectionResult.name}
                   </div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Mã NV: <strong>{detectionResult.empId}</strong> • Phòng ban: {detectionResult.department}
+                  <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    Mã NV: <strong>{detectionResult.empId}</strong> &bull; {detectionResult.department}
                   </div>
                 </div>
 
-                {/* Progress bar Confidence */}
-                <div style={{ marginBottom: '18px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '6px' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Độ trùng khớp danh tính (%):</span>
-                    <span style={{ fontWeight: 800, color: '#34d399' }}>{detectionResult.confidence}%</span>
+                {/* Accuracy meter */}
+                <div style={{ marginBottom: '24px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '8px' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>Độ trùng khớp (Confidence):</span>
+                    <span style={{ fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                      {detectionResult.confidence}%
+                    </span>
                   </div>
                   <div
                     style={{
-                      height: '8px',
-                      background: 'rgba(255, 255, 255, 0.08)',
-                      borderRadius: '4px',
+                      height: '6px',
+                      backgroundColor: 'var(--bg-subtle)',
+                      borderRadius: '3px',
                       overflow: 'hidden',
                     }}
                   >
@@ -536,107 +512,105 @@ export default function DemoPage() {
                       style={{
                         width: `${detectionResult.confidence}%`,
                         height: '100%',
-                        background: 'linear-gradient(90deg, #10b981, #06b6d4)',
-                        borderRadius: '4px',
+                        backgroundColor: '#1a1a1a',
+                        borderRadius: '3px',
                       }}
                     />
                   </div>
                 </div>
 
-                {/* Technical stats grid */}
+                {/* Metadata grid */}
                 <div
                   style={{
                     display: 'grid',
                     gridTemplateColumns: '1fr 1fr',
-                    gap: '10px',
-                    fontSize: '0.8rem',
-                    marginBottom: '20px',
+                    gap: '12px',
+                    fontSize: '0.8125rem',
+                    marginBottom: '28px',
                   }}
                 >
-                  <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '10px 12px', borderRadius: '10px' }}>
-                    <div style={{ color: 'var(--text-dim)' }}>Thời gian suy luận</div>
-                    <div style={{ fontWeight: 700, color: '#38bdf8', marginTop: '2px' }}>
+                  <div style={{ backgroundColor: 'var(--bg-neutral)', padding: '12px', borderRadius: '14px', border: '1px solid var(--border-subtle)' }}>
+                    <div style={{ color: 'var(--text-muted)' }}>Thời gian suy luận</div>
+                    <div style={{ fontWeight: 700, marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
                       {detectionResult.inferenceTime} ms
                     </div>
                   </div>
 
-                  <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '10px 12px', borderRadius: '10px' }}>
-                    <div style={{ color: 'var(--text-dim)' }}>Góc khuôn mặt</div>
-                    <div style={{ fontWeight: 700, color: '#c084fc', marginTop: '2px' }}>
+                  <div style={{ backgroundColor: 'var(--bg-neutral)', padding: '12px', borderRadius: '14px', border: '1px solid var(--border-subtle)' }}>
+                    <div style={{ color: 'var(--text-muted)' }}>Góc khuôn mặt</div>
+                    <div style={{ fontWeight: 700, marginTop: '2px' }}>
                       {detectionResult.angle}
                     </div>
                   </div>
 
-                  <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '10px 12px', borderRadius: '10px' }}>
-                    <div style={{ color: 'var(--text-dim)' }}>Bộ trích xuất</div>
-                    <div style={{ fontWeight: 700, color: '#f1f5f9', marginTop: '2px' }}>
+                  <div style={{ backgroundColor: 'var(--bg-neutral)', padding: '12px', borderRadius: '14px', border: '1px solid var(--border-subtle)' }}>
+                    <div style={{ color: 'var(--text-muted)' }}>Mô hình nơ-ron</div>
+                    <div style={{ fontWeight: 700, marginTop: '2px' }}>
                       dlib ResNet 128-d
                     </div>
                   </div>
 
-                  <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '10px 12px', borderRadius: '10px' }}>
-                    <div style={{ color: 'var(--text-dim)' }}>Ngưỡng chấp nhận</div>
-                    <div style={{ fontWeight: 700, color: '#f59e0b', marginTop: '2px' }}>
-                      Tolerance: 0.44
+                  <div style={{ backgroundColor: 'var(--bg-neutral)', padding: '12px', borderRadius: '14px', border: '1px solid var(--border-subtle)' }}>
+                    <div style={{ color: 'var(--text-muted)' }}>Ngưỡng sai số</div>
+                    <div style={{ fontWeight: 700, marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
+                      0.44 (Strict)
                     </div>
                   </div>
                 </div>
 
-                {/* Direct Action: Record Attendance to MongoDB */}
+                {/* Primary Button to sync with MongoDB */}
                 <button
-                  className="btn-glass-cyan"
+                  className="btn-primary"
                   onClick={handleRecordAttendance}
                   disabled={submittingLog}
-                  style={{ width: '100%', padding: '12px' }}
+                  style={{ width: '100%', padding: '14px' }}
                 >
                   <UserCheck size={18} />
-                  {submittingLog ? 'Đang ghi vào MongoDB...' : 'Ghi nhận điểm danh vào CSDL'}
+                  {submittingLog ? 'Đang gửi bản ghi...' : 'Ghi nhận điểm danh vào CSDL'}
                 </button>
 
                 {saveSuccess && (
                   <div
                     style={{
-                      marginTop: '14px',
-                      padding: '12px 14px',
-                      borderRadius: '10px',
-                      background: 'rgba(16, 185, 129, 0.15)',
-                      border: '1px solid rgba(16, 185, 129, 0.3)',
-                      color: '#34d399',
-                      fontSize: '0.85rem',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px',
+                      marginTop: '16px',
+                      padding: '14px 16px',
+                      borderRadius: '16px',
+                      backgroundColor: '#eefbf4',
+                      border: '1px solid #c7f2da',
+                      color: '#108a55',
+                      fontSize: '0.875rem',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
                       <CheckCircle2 size={16} />
                       <span>{saveSuccess}</span>
                     </div>
                     <Link
                       to="/admin"
                       style={{
-                        color: '#38bdf8',
-                        fontSize: '0.8rem',
+                        color: '#108a55',
                         fontWeight: 600,
-                        textDecoration: 'none',
+                        textDecoration: 'underline',
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '4px',
+                        marginTop: '6px',
+                        fontSize: '0.8125rem',
                       }}
                     >
-                      Xem lượt điểm danh tại trang Quản trị (/admin) &rarr;
+                      Kiểm tra lượt điểm danh tại trang Quản trị (/admin) &rarr;
                     </Link>
                   </div>
                 )}
               </div>
             ) : (
-              <div style={{ textAlign: 'center', padding: '30px 16px', color: 'var(--text-dim)' }}>
-                <Zap size={32} style={{ margin: '0 auto 12px', opacity: 0.4 }} />
-                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-                  Chưa có dữ liệu nhận diện
+              <div style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text-muted)' }}>
+                <Clock size={32} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
+                <p style={{ fontSize: '0.9375rem', fontWeight: 500, color: 'var(--text-secondary)' }}>
+                  Chưa có kết quả nhận diện
                 </p>
-                <p style={{ fontSize: '0.785rem', marginTop: '4px' }}>
-                  Bật camera hoặc tải ảnh lên rồi nhấn <strong>"Quét & Nhận diện"</strong> để xem phân tích AI.
+                <p style={{ fontSize: '0.8125rem', marginTop: '4px', color: 'var(--text-muted)' }}>
+                  Bật camera và nhấn nút <strong>"Quét & Nhận diện"</strong> để trích xuất vector đặc trưng.
                 </p>
               </div>
             )}
@@ -644,24 +618,24 @@ export default function DemoPage() {
 
           {/* Quick link to /admin */}
           <div
-            className="glass-card"
+            className="minimal-card"
             style={{
-              padding: '20px',
+              padding: '24px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              gap: '12px',
+              gap: '16px',
             }}
           >
             <div>
-              <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#f1f5f9' }}>
+              <div style={{ fontSize: '1rem', fontWeight: 700 }}>
                 Trang Quản Trị Hệ Thống
               </div>
-              <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                Xem toàn bộ lịch sử điểm danh và hồ sơ nhân sự
+              <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                Xem toàn bộ báo cáo chấm công và danh bạ nhân sự
               </div>
             </div>
-            <Link to="/admin" className="btn-glass-secondary" style={{ padding: '8px 16px', fontSize: '0.825rem' }}>
+            <Link to="/admin" className="btn-outline" style={{ padding: '8px 18px', fontSize: '0.8125rem' }}>
               Đi tới /admin &rarr;
             </Link>
           </div>

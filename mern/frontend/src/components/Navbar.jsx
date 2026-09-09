@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, Link } from 'react-router-dom';
-import { Camera, ShieldCheck, Sparkles, LayoutDashboard, Radio } from 'lucide-react';
+import { Camera, Sparkles, LayoutDashboard, ArrowUpRight } from 'lucide-react';
 
 export default function Navbar() {
   const [backendOnline, setBackendOnline] = useState(false);
@@ -20,16 +20,16 @@ export default function Navbar() {
   }, []);
 
   return (
-    <nav
+    <header
       style={{
         position: 'sticky',
         top: 0,
-        zIndex: 50,
-        background: 'rgba(7, 9, 14, 0.75)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-        padding: '14px 24px',
+        zIndex: 100,
+        backgroundColor: 'rgba(255, 255, 255, 0.85)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        borderBottom: '1px solid rgba(0, 0, 0, 0.06)',
+        padding: '16px 24px',
       }}
     >
       <div
@@ -48,60 +48,64 @@ export default function Navbar() {
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '12px',
+            gap: '10px',
             textDecoration: 'none',
-            color: 'inherit',
+            color: 'var(--text-primary)',
           }}
         >
           <div
             style={{
-              width: '42px',
-              height: '42px',
-              borderRadius: '12px',
-              background: 'linear-gradient(135deg, #06b6d4, #3b82f6)',
+              width: '36px',
+              height: '36px',
+              borderRadius: '10px',
+              backgroundColor: 'var(--text-primary)',
+              color: '#ffffff',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 0 20px rgba(6, 182, 212, 0.4)',
             }}
           >
-            <Camera size={22} color="#ffffff" />
+            <Camera size={18} strokeWidth={2.2} />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.02em', color: '#fff' }}>
+              <span
+                style={{
+                  fontSize: '1.125rem',
+                  fontWeight: 700,
+                  letterSpacing: '-0.03em',
+                  fontFamily: 'var(--font-display)',
+                }}
+              >
                 FaceDetect
               </span>
               <span
                 style={{
-                  fontSize: '0.7rem',
-                  fontWeight: 700,
-                  padding: '2px 6px',
-                  borderRadius: '6px',
-                  background: 'rgba(59, 130, 246, 0.2)',
-                  color: '#60a5fa',
-                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                  fontSize: '0.6875rem',
+                  fontWeight: 600,
+                  padding: '2px 8px',
+                  borderRadius: '20px',
+                  backgroundColor: 'var(--bg-muted)',
+                  color: 'var(--text-secondary)',
+                  border: '1px solid var(--border-subtle)',
                 }}
               >
                 MERN
               </span>
             </div>
-            <p style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
-              YOLOv11 + dlib ResNet Engine
-            </p>
           </div>
         </Link>
 
         {/* Navigation Links */}
-        <div
+        <nav
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
-            background: 'rgba(255, 255, 255, 0.03)',
+            gap: '4px',
+            backgroundColor: 'var(--bg-muted)',
             padding: '4px',
-            borderRadius: '14px',
-            border: '1px solid rgba(255, 255, 255, 0.06)',
+            borderRadius: '40px',
+            border: '1px solid var(--border-subtle)',
           }}
         >
           <NavLink
@@ -109,14 +113,14 @@ export default function Navbar() {
             end
             style={({ isActive }) => ({
               padding: '8px 18px',
-              borderRadius: '10px',
+              borderRadius: '40px',
               fontSize: '0.875rem',
-              fontWeight: 600,
+              fontWeight: isActive ? 600 : 500,
               textDecoration: 'none',
               transition: 'all 0.2s ease',
-              color: isActive ? '#ffffff' : 'var(--text-muted)',
-              background: isActive ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
-              boxShadow: isActive ? '0 2px 8px rgba(0,0,0,0.3)' : 'none',
+              color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+              backgroundColor: isActive ? '#ffffff' : 'transparent',
+              boxShadow: isActive ? '0 1px 4px rgba(0, 0, 0, 0.06)' : 'none',
             })}
           >
             Trang chủ
@@ -126,20 +130,20 @@ export default function Navbar() {
             to="/demo"
             style={({ isActive }) => ({
               padding: '8px 18px',
-              borderRadius: '10px',
+              borderRadius: '40px',
               fontSize: '0.875rem',
-              fontWeight: 600,
+              fontWeight: isActive ? 600 : 500,
               textDecoration: 'none',
               transition: 'all 0.2s ease',
-              color: isActive ? '#38bdf8' : 'var(--text-muted)',
-              background: isActive ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
-              border: isActive ? '1px solid rgba(6, 182, 212, 0.3)' : '1px solid transparent',
+              color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+              backgroundColor: isActive ? '#ffffff' : 'transparent',
+              boxShadow: isActive ? '0 1px 4px rgba(0, 0, 0, 0.06)' : 'none',
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
             })}
           >
-            <Sparkles size={15} />
+            <Sparkles size={14} />
             Thử nghiệm AI
           </NavLink>
 
@@ -147,44 +151,56 @@ export default function Navbar() {
             to="/admin"
             style={({ isActive }) => ({
               padding: '8px 18px',
-              borderRadius: '10px',
+              borderRadius: '40px',
               fontSize: '0.875rem',
-              fontWeight: 600,
+              fontWeight: isActive ? 600 : 500,
               textDecoration: 'none',
               transition: 'all 0.2s ease',
-              color: isActive ? '#a855f7' : 'var(--text-muted)',
-              background: isActive ? 'rgba(168, 85, 247, 0.15)' : 'transparent',
-              border: isActive ? '1px solid rgba(168, 85, 247, 0.3)' : '1px solid transparent',
+              color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+              backgroundColor: isActive ? '#ffffff' : 'transparent',
+              boxShadow: isActive ? '0 1px 4px rgba(0, 0, 0, 0.06)' : 'none',
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
             })}
           >
-            <LayoutDashboard size={15} />
+            <LayoutDashboard size={14} />
             Quản trị (/admin)
           </NavLink>
-        </div>
+        </nav>
 
-        {/* Status indicator & Direct CTA */}
+        {/* Right Action & API Status */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div
-            className={`badge ${backendOnline ? 'badge-green' : 'badge-amber'}`}
-            title={backendOnline ? 'Backend API hoạt động tại port 5000' : 'Backend Express chưa kết nối'}
-            style={{ display: 'inline-flex' }}
+            className={`badge-tag ${backendOnline ? 'active' : 'neutral'}`}
+            title={backendOnline ? 'Express API cổng 5000 đã kết nối' : 'Express API chưa kết nối'}
+            style={{ fontSize: '0.75rem', padding: '4px 10px' }}
           >
             <span
-              className="pulse-indicator"
-              style={{ background: backendOnline ? '#10b981' : '#f59e0b' }}
+              style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                backgroundColor: backendOnline ? '#108a55' : '#9295a3',
+              }}
             />
             {backendOnline ? 'API Online' : 'API Offline'}
           </div>
 
-          <Link to="/demo" className="btn-glass-cyan" style={{ padding: '8px 16px', fontSize: '0.825rem' }}>
-            <Radio size={14} />
+          <Link
+            to="/demo"
+            className="btn-primary"
+            style={{
+              padding: '8px 20px',
+              fontSize: '0.875rem',
+              borderRadius: '40px',
+            }}
+          >
             Quét mặt Live
+            <ArrowUpRight size={15} />
           </Link>
         </div>
       </div>
-    </nav>
+    </header>
   );
 }

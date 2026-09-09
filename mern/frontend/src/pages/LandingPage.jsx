@@ -1,413 +1,706 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
-  Sparkles,
-  Camera,
-  ShieldCheck,
-  Zap,
-  Layers,
-  Database,
-  CheckCircle2,
   ArrowRight,
+  CheckCircle2,
   Cpu,
   Fingerprint,
-  UserCheck,
-  TrendingUp,
+  Zap,
+  Database,
+  Star,
+  ShieldCheck,
+  ScanLine,
+  ArrowUpRight,
   Clock,
-  ScanLine
+  Layers
 } from 'lucide-react';
 
 export default function LandingPage() {
+  const [emailInput, setEmailInput] = useState('');
+  const navigate = useNavigate();
+
+  const handleQuickStart = (e) => {
+    e.preventDefault();
+    navigate('/demo');
+  };
+
   return (
-    <div style={{ paddingBottom: '60px' }}>
+    <div style={{ position: 'relative', width: '100%', overflow: 'hidden' }}>
+      {/* Background Video (Vertically flipped scaleY(-1) with white gradient overlay as specified in design.md) */}
+      <div className="hero-video-container">
+        <video
+          className="hero-video"
+          autoPlay
+          loop
+          muted
+          playsInline
+          poster="https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1920&q=80"
+        >
+          {/* Subtle slow motion cloud/water movement */}
+          <source
+            src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+            type="video/mp4"
+          />
+        </video>
+        <div className="hero-gradient-overlay" />
+      </div>
+
       {/* Hero Section */}
       <section
         style={{
           position: 'relative',
-          padding: '70px 24px 60px',
+          zIndex: 2,
           maxWidth: '1280px',
           margin: '0 auto',
+          padding: '240px 24px 100px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
           textAlign: 'center',
         }}
       >
-        {/* Glow backdrop decorative spots */}
+        {/* Social Proof Badge */}
         <div
+          className="badge-minimal"
           style={{
-            position: 'absolute',
-            top: '20%',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: '600px',
-            height: '280px',
-            background: 'radial-gradient(ellipse, rgba(59, 130, 246, 0.25), rgba(6, 182, 212, 0.15), transparent 70%)',
-            filter: 'blur(50px)',
-            zIndex: -1,
-            pointerEvents: 'none',
-          }}
-        />
-
-        {/* Hero Badge */}
-        <div
-          className="badge badge-blue"
-          style={{
-            marginBottom: '20px',
-            padding: '6px 16px',
-            fontSize: '0.85rem',
-            boxShadow: '0 0 20px rgba(59, 130, 246, 0.2)',
+            marginBottom: '28px',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+            backgroundColor: '#ffffff',
           }}
         >
-          <Sparkles size={14} color="#60a5fa" />
-          <span>YOLOv11 Face Detection + dlib 128-d Vector Embedding</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '3px', color: '#f59e0b' }}>
+            <Star size={13} fill="#f59e0b" />
+            <Star size={13} fill="#f59e0b" />
+            <Star size={13} fill="#f59e0b" />
+            <Star size={13} fill="#f59e0b" />
+            <Star size={13} fill="#f59e0b" />
+          </div>
+          <span style={{ color: 'var(--text-primary)', fontWeight: 600, marginLeft: '4px' }}>
+            4.9/5
+          </span>
+          <span style={{ color: 'var(--text-dim)' }}>&bull;</span>
+          <span style={{ color: 'var(--text-secondary)' }}>
+            Hệ thống AI nhận diện 99.2% chính xác
+          </span>
         </div>
 
-        {/* Headline */}
+        {/* Headline with Geist + Instrument Serif italic */}
         <h1
           style={{
-            fontSize: 'clamp(2.2rem, 5vw, 3.8rem)',
-            fontWeight: 800,
-            lineHeight: 1.15,
-            letterSpacing: '-0.03em',
-            marginBottom: '20px',
-            maxWidth: '900px',
-            margin: '0 auto 20px',
+            fontSize: 'clamp(2.6rem, 5.5vw, 4.8rem)',
+            fontWeight: 700,
+            lineHeight: 1.08,
+            letterSpacing: '-0.04em',
+            maxWidth: '960px',
+            marginBottom: '24px',
+            color: 'var(--text-primary)',
           }}
         >
-          Hệ Thống Nhận Diện Khuôn Mặt &{' '}
-          <span className="text-gradient-cyan-blue">Điểm Danh Tự Động MERN</span>
+          Quản lý nhân sự và điểm danh{' '}
+          <span
+            className="font-accent-italic"
+            style={{
+              fontSize: '1.2em',
+              fontWeight: 400,
+              color: 'var(--text-secondary)',
+              padding: '0 4px',
+            }}
+          >
+            chính xác
+          </span>{' '}
+          bằng thị giác AI.
         </h1>
 
-        {/* Subtitle */}
+        {/* Subtitle - 18px, opacity 80%, max 72ch */}
         <p
           style={{
-            fontSize: 'clamp(1rem, 2vw, 1.2rem)',
-            color: 'var(--text-muted)',
-            maxWidth: '750px',
-            margin: '0 auto 36px',
-            lineHeight: 1.6,
+            fontSize: '1.125rem',
+            lineHeight: 1.65,
+            color: 'var(--text-secondary)',
+            opacity: 0.85,
+            maxWidth: '68ch',
+            marginBottom: '44px',
           }}
         >
-          Giải pháp chấm công thông minh kết hợp mạng nơ-ron AI thế hệ mới 
-          <strong> YOLOv11</strong> với kiến trúc web <strong>MERN Stack</strong> hiện đại. 
-          Nhận dạng chính xác dưới 0.01 giây, chống giả mạo và đồng bộ dữ liệu thời gian thực.
+          Kết hợp tốc độ dò tìm vị trí mặt của <strong>YOLOv11</strong> và thuật toán nhúng 
+          vector 128 chiều <strong>dlib ResNet</strong> trên nền tảng <strong>MERN Stack</strong>. 
+          Điểm danh tức thì dưới 0.01 giây, loại bỏ hoàn toàn gian lận chấm công.
         </p>
 
-        {/* Hero Actions */}
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            justifyContent: 'center',
-            gap: '16px',
-            marginBottom: '50px',
-          }}
-        >
-          <Link to="/demo" className="btn-glass-cyan" style={{ padding: '14px 28px', fontSize: '1rem' }}>
-            <ScanLine size={19} />
-            Trải nghiệm thử Mô hình AI
-            <ArrowRight size={17} />
-          </Link>
+        {/* Input Pill & CTA Form (rounded 40px with soft shadow) */}
+        <form onSubmit={handleQuickStart} style={{ marginBottom: '32px', width: '100%', display: 'flex', justifyContent: 'center' }}>
+          <div className="input-hero-pill">
+            <input
+              type="text"
+              placeholder="Nhập tên nhân viên để thử nghiệm..."
+              value={emailInput}
+              onChange={(e) => setEmailInput(e.target.value)}
+            />
+            <button type="submit" className="btn-primary" style={{ flexShrink: 0, padding: '10px 24px' }}>
+              Thử nghiệm AI
+              <ArrowRight size={16} />
+            </button>
+          </div>
+        </form>
 
-          <Link to="/admin" className="btn-glass-secondary" style={{ padding: '14px 28px', fontSize: '1rem' }}>
-            <ShieldCheck size={19} color="#a855f7" />
+        {/* Action Link to /admin */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <Link
+            to="/admin"
+            style={{
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              color: 'var(--text-secondary)',
+              textDecoration: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 16px',
+              borderRadius: 'var(--rounded-sm)',
+              border: '1px solid var(--border-subtle)',
+              backgroundColor: '#ffffff',
+            }}
+          >
             Vào Trang Quản Trị (/admin)
+            <ArrowUpRight size={14} />
           </Link>
-        </div>
 
-        {/* Highlight Stats Row */}
+          <span style={{ fontSize: '0.8125rem', color: 'var(--text-dim)' }}>
+            Không cần cài đặt thêm &bull; Trực tiếp trên trình duyệt
+          </span>
+        </div>
+      </section>
+
+      {/* Key Numbers Row (Minimalist cards) */}
+      <section
+        style={{
+          maxWidth: '1280px',
+          margin: '0 auto 80px',
+          padding: '0 24px',
+        }}
+      >
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
             gap: '16px',
-            maxWidth: '1000px',
-            margin: '0 auto',
           }}
         >
-          <div className="glass-card" style={{ padding: '20px', textAlign: 'center' }}>
-            <div style={{ fontSize: '2rem', fontWeight: 800, color: '#38bdf8' }}>&lt; 0.01s</div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-              Tốc độ tìm mặt YOLOv11
+          <div className="minimal-card" style={{ padding: '32px 28px' }}>
+            <div style={{ fontSize: '2.5rem', fontWeight: 700, letterSpacing: '-0.04em' }}>
+              &lt; 0.01s
             </div>
+            <div style={{ fontSize: '0.9375rem', fontWeight: 600, marginTop: '8px' }}>
+              Dò tìm khuôn mặt
+            </div>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.5 }}>
+              YOLOv11 định vị khuôn mặt cực nhanh, bắt góc nghiêng cực đại và che khuất.
+            </p>
           </div>
 
-          <div className="glass-card" style={{ padding: '20px', textAlign: 'center' }}>
-            <div style={{ fontSize: '2rem', fontWeight: 800, color: '#34d399' }}>99.2%</div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-              Độ chính xác nhận diện
+          <div className="minimal-card" style={{ padding: '32px 28px' }}>
+            <div style={{ fontSize: '2.5rem', fontWeight: 700, letterSpacing: '-0.04em' }}>
+              99.2%
             </div>
+            <div style={{ fontSize: '0.9375rem', fontWeight: 600, marginTop: '8px' }}>
+              Độ chính xác xác thực
+            </div>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.5 }}>
+              Tính toán độ trùng khớp danh tính dựa trên khoảng cách Euclidean phi tuyến tính.
+            </p>
           </div>
 
-          <div className="glass-card" style={{ padding: '20px', textAlign: 'center' }}>
-            <div style={{ fontSize: '2rem', fontWeight: 800, color: '#c084fc' }}>128-d</div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-              Vector đặc trưng chuẩn ResNet
+          <div className="minimal-card" style={{ padding: '32px 28px' }}>
+            <div style={{ fontSize: '2.5rem', fontWeight: 700, letterSpacing: '-0.04em' }}>
+              128-d
             </div>
+            <div style={{ fontSize: '0.9375rem', fontWeight: 600, marginTop: '8px' }}>
+              Vector đặc trưng chuẩn
+            </div>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.5 }}>
+              Học 20 góc mặt của từng nhân viên, nạp dữ liệu encodings trong chớp mắt.
+            </p>
           </div>
 
-          <div className="glass-card" style={{ padding: '20px', textAlign: 'center' }}>
-            <div style={{ fontSize: '2rem', fontWeight: 800, color: '#f59e0b' }}>Realtime</div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+          <div className="minimal-card" style={{ padding: '32px 28px' }}>
+            <div style={{ fontSize: '2.5rem', fontWeight: 700, letterSpacing: '-0.04em' }}>
+              Realtime
+            </div>
+            <div style={{ fontSize: '0.9375rem', fontWeight: 600, marginTop: '8px' }}>
               Đồng bộ CSDL MongoDB
             </div>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+              Bản ghi điểm danh được Express lưu tức thời và cập nhật trên Dashboard.
+            </p>
           </div>
         </div>
       </section>
 
-      {/* Core AI & Architecture Features */}
+      {/* Feature Section 1: Zig-Zag Alternating Layout (Text Left, Visual Right) */}
       <section
         style={{
           maxWidth: '1280px',
-          margin: '40px auto 0',
+          margin: '0 auto 120px',
           padding: '0 24px',
         }}
       >
-        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-          <span className="badge badge-purple" style={{ marginBottom: '12px' }}>
-            <Cpu size={13} /> Sức Mạnh Công Nghệ
-          </span>
-          <h2 style={{ fontSize: '2.2rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
-            Sự kết hợp hoàn hảo giữa AI và MERN
-          </h2>
-          <p style={{ color: 'var(--text-muted)', maxWidth: '650px', margin: '8px auto 0' }}>
-            Tối ưu hóa từ lõi mô hình AI xử lý camera tới tầng lưu trữ cơ sở dữ liệu và hiển thị giao diện người dùng.
-          </p>
-        </div>
-
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-            gap: '20px',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gap: '60px',
+            alignItems: 'center',
           }}
         >
-          {/* Card 1: YOLOv11 */}
-          <div className="glass-card" style={{ padding: '28px' }}>
-            <div
+          {/* Text Left */}
+          <div>
+            <div className="badge-minimal" style={{ marginBottom: '16px' }}>
+              <Zap size={14} /> Giai đoạn 1: Dò tìm siêu tốc
+            </div>
+            <h2
               style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '14px',
-                background: 'rgba(6, 182, 212, 0.15)',
-                color: '#38bdf8',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+                fontSize: 'clamp(2rem, 3.5vw, 2.75rem)',
+                fontWeight: 700,
+                letterSpacing: '-0.035em',
                 marginBottom: '20px',
-                border: '1px solid rgba(6, 182, 212, 0.3)',
+                lineHeight: 1.15,
               }}
             >
-              <Zap size={24} />
-            </div>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '10px' }}>
-              YOLOv11 Face Detection
-            </h3>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-              Dò tìm vị trí khuôn mặt tức thì, xử lý xuất sắc các góc nghiêng lớn, khuôn mặt bị che khuất một phần hoặc ở khoảng cách xa với độ trễ cực thấp.
+              YOLOv11 Face &mdash; Bắt góc khuôn mặt{' '}
+              <span className="font-accent-italic" style={{ fontSize: '1.15em', fontWeight: 400 }}>
+                hoàn hảo
+              </span>
+            </h2>
+            <p style={{ fontSize: '1.0625rem', color: 'var(--text-secondary)', lineHeight: 1.65, marginBottom: '24px' }}>
+              Mô hình YOLOv11n-face chuyên dụng dò quét từng khung hình webcam ở độ phân giải gốc. 
+              Thuật toán tự động tìm kiếm vị trí khuôn mặt, loại bỏ nhiễu nền và cắt chuẩn xác 
+              vùng mặt ngay cả khi người dùng đeo kính, nghiêng đầu hoặc đứng xa camera.
             </p>
+
+            <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9375rem', color: 'var(--text-primary)' }}>
+                <CheckCircle2 size={18} color="#108a55" />
+                Định vị Bounding Box chính xác trong dưới 10ms
+              </li>
+              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9375rem', color: 'var(--text-primary)' }}>
+                <CheckCircle2 size={18} color="#108a55" />
+                Khả năng thích ứng với điều kiện ánh sáng yếu hoặc ngược sáng
+              </li>
+              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9375rem', color: 'var(--text-primary)' }}>
+                <CheckCircle2 size={18} color="#108a55" />
+                Chỉ cho phép chụp mẫu khi có đúng 1 khuôn mặt rõ nét
+              </li>
+            </ul>
           </div>
 
-          {/* Card 2: dlib ResNet */}
-          <div className="glass-card" style={{ padding: '28px' }}>
-            <div
-              style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '14px',
-                background: 'rgba(168, 85, 247, 0.15)',
-                color: '#c084fc',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: '20px',
-                border: '1px solid rgba(168, 85, 247, 0.3)',
-              }}
-            >
-              <Fingerprint size={24} />
-            </div>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '10px' }}>
-              Mã Hóa Vector 128-d
-            </h3>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-              Học đa góc độ (20 frames quét trực diện, nghiêng trái, nghiêng phải, góc ngửa). So khớp phi tuyến tính đưa ra tỷ lệ % trùng khớp danh tính chính xác.
-            </p>
-          </div>
-
-          {/* Card 3: Backend Express */}
-          <div className="glass-card" style={{ padding: '28px' }}>
-            <div
-              style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '14px',
-                background: 'rgba(59, 130, 246, 0.15)',
-                color: '#60a5fa',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: '20px',
-                border: '1px solid rgba(59, 130, 246, 0.3)',
-              }}
-            >
-              <Database size={24} />
-            </div>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '10px' }}>
-              Express.js & MongoDB
-            </h3>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-              REST API linh hoạt tiếp nhận dữ liệu điểm danh từ camera AI, lưu vết vào MongoDB <code>face_detect_db</code> và cung cấp phân tích thống kê chuyên sâu.
-            </p>
-          </div>
-
-          {/* Card 4: React Glassmorphism */}
-          <div className="glass-card" style={{ padding: '28px' }}>
-            <div
-              style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '14px',
-                background: 'rgba(16, 185, 129, 0.15)',
-                color: '#34d399',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: '20px',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
-              }}
-            >
-              <Layers size={24} />
-            </div>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '10px' }}>
-              React Glassmorphism UI
-            </h3>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-              Thiết kế kính mờ cao cấp với hiệu ứng ánh sáng neon tinh tế, hỗ trợ điều hành trực tiếp, thử nghiệm camera live và quản lý nhân sự thuận tiện.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Interactive Flow Pipeline */}
-      <section
-        style={{
-          maxWidth: '1280px',
-          margin: '70px auto 0',
-          padding: '0 24px',
-        }}
-      >
-        <div className="glass-card" style={{ padding: '36px' }}>
-          <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '8px', color: '#f1f5f9' }}>
-            Quy Trình Hoạt Động Của Hệ Thống
-          </h3>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '32px' }}>
-            Cách thức thông tin di chuyển từ luồng camera trực tiếp tới hệ thống dữ liệu đám mây:
-          </p>
-
+          {/* Visual Right */}
           <div
+            className="minimal-card"
             style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-              gap: '16px',
-              position: 'relative',
+              padding: '36px',
+              backgroundColor: 'var(--bg-neutral)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--rounded-card)',
             }}
           >
             <div
               style={{
-                background: 'rgba(255, 255, 255, 0.03)',
-                padding: '20px',
-                borderRadius: '14px',
-                border: '1px solid var(--border-glass)',
+                backgroundColor: '#ffffff',
+                borderRadius: '20px',
+                border: '1px solid var(--border-subtle)',
+                padding: '24px',
+                boxShadow: 'var(--shadow-card)',
               }}
             >
-              <div style={{ color: '#38bdf8', fontWeight: 800, fontSize: '1.1rem', marginBottom: '6px' }}>
-                01. Quét Camera
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#108a55' }} />
+                  <span style={{ fontSize: '0.8125rem', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
+                    yolov11n-face.pt
+                  </span>
+                </div>
+                <span className="badge-tag active">Confidence: 98.6%</span>
               </div>
-              <p style={{ fontSize: '0.825rem', color: 'var(--text-muted)' }}>
-                Webcam hoặc camera IP ghi nhận luồng video thời gian thực với tỷ lệ khung hình mượt mà.
+
+              {/* Simulated Detection Box Frame */}
+              <div
+                style={{
+                  height: '240px',
+                  backgroundColor: 'var(--bg-muted)',
+                  borderRadius: '14px',
+                  border: '1px solid var(--border-subtle)',
+                  position: 'relative',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    width: '130px',
+                    height: '150px',
+                    border: '2px solid #1a1a1a',
+                    borderRadius: '12px',
+                    position: 'relative',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    padding: '8px',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: '0.6875rem',
+                      fontFamily: 'var(--font-mono)',
+                      backgroundColor: '#1a1a1a',
+                      color: '#ffffff',
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                      alignSelf: 'flex-start',
+                    }}
+                  >
+                    Face #1 (98.6%)
+                  </div>
+                  <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                    128-d aligned
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  marginTop: '16px',
+                  fontSize: '0.8125rem',
+                  color: 'var(--text-muted)',
+                  fontFamily: 'var(--font-mono)',
+                }}
+              >
+                <span>Scale: 0.5x</span>
+                <span>Inference: 8.4ms</span>
+                <span>IoU: 0.70</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Feature Section 2: Zig-Zag Alternating Layout (Visual Left, Text Right) */}
+      <section
+        style={{
+          maxWidth: '1280px',
+          margin: '0 auto 120px',
+          padding: '0 24px',
+        }}
+      >
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gap: '60px',
+            alignItems: 'center',
+          }}
+        >
+          {/* Visual Left */}
+          <div
+            className="minimal-card"
+            style={{
+              padding: '36px',
+              backgroundColor: 'var(--bg-neutral)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--rounded-card)',
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: '#ffffff',
+                borderRadius: '20px',
+                border: '1px solid var(--border-subtle)',
+                padding: '24px',
+                boxShadow: 'var(--shadow-card)',
+              }}
+            >
+              <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '14px' }}>
+                HỌC ĐA GÓC ĐỘ (20 FRAMES / NGƯỜI)
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '20px' }}>
+                {['Trực diện', 'Nghiêng T', 'Nghiêng P', 'Ngửa mặt'].map((label, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      padding: '12px 6px',
+                      backgroundColor: 'var(--bg-muted)',
+                      borderRadius: '10px',
+                      textAlign: 'center',
+                      border: '1px solid var(--border-subtle)',
+                    }}
+                  >
+                    <div style={{ fontSize: '0.9375rem', fontWeight: 700 }}>5/5</div>
+                    <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', marginTop: '2px' }}>{label}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div
+                style={{
+                  padding: '14px',
+                  borderRadius: '12px',
+                  backgroundColor: 'var(--bg-muted)',
+                  fontSize: '0.8125rem',
+                  fontFamily: 'var(--font-mono)',
+                  color: 'var(--text-secondary)',
+                }}
+              >
+                <div>encodings.pkl &bull; 128 float64 values</div>
+                <div style={{ color: '#108a55', marginTop: '4px' }}>
+                  Tolerance threshold: 0.44 (Strictest)
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Text Right */}
+          <div>
+            <div className="badge-minimal" style={{ marginBottom: '16px' }}>
+              <Fingerprint size={14} /> Giai đoạn 2: Mã hóa đặc trưng 128 chiều
+            </div>
+            <h2
+              style={{
+                fontSize: 'clamp(2rem, 3.5vw, 2.75rem)',
+                fontWeight: 700,
+                letterSpacing: '-0.035em',
+                marginBottom: '20px',
+                lineHeight: 1.15,
+              }}
+            >
+              Trích xuất vector nhúng{' '}
+              <span className="font-accent-italic" style={{ fontSize: '1.15em', fontWeight: 400 }}>
+                bất biến
+              </span>{' '}
+              với dlib ResNet
+            </h2>
+            <p style={{ fontSize: '1.0625rem', color: 'var(--text-secondary)', lineHeight: 1.65, marginBottom: '24px' }}>
+              Mỗi khuôn mặt được chuyển đổi thành một vector toán học 128 chiều duy nhất. 
+              Khi nhân viên đứng trước camera, hệ thống so sánh khoảng cách Euclidean giữa 
+              khuôn mặt hiện tại và các vector đã nạp, quy đổi thành tỷ lệ phần trăm (%) trùng khớp chính xác.
+            </p>
+
+            <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9375rem', color: 'var(--text-primary)' }}>
+                <CheckCircle2 size={18} color="#108a55" />
+                Cơ chế đóng băng màn hình (Freeze Screen) xác thực điểm danh
+              </li>
+              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9375rem', color: 'var(--text-primary)' }}>
+                <CheckCircle2 size={18} color="#108a55" />
+                Chống spam: Delay thông minh giữa các lần chấm công của cùng một người
+              </li>
+              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9375rem', color: 'var(--text-primary)' }}>
+                <CheckCircle2 size={18} color="#108a55" />
+                Lưu trữ vector nén gọn nhẹ, tải vào RAM trong dưới 0.01 giây
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      {/* Editorial Architecture Pipeline */}
+      <section
+        style={{
+          maxWidth: '1280px',
+          margin: '0 auto 120px',
+          padding: '0 24px',
+        }}
+      >
+        <div
+          className="minimal-card"
+          style={{
+            padding: '48px 40px',
+            backgroundColor: 'var(--bg-neutral)',
+            border: '1px solid var(--border-subtle)',
+          }}
+        >
+          <div style={{ maxWidth: '640px', marginBottom: '40px' }}>
+            <span className="badge-minimal" style={{ marginBottom: '12px' }}>
+              <Database size={13} /> Kiến trúc luồng dữ liệu
+            </span>
+            <h3 style={{ fontSize: '2rem', fontWeight: 700, letterSpacing: '-0.03em' }}>
+              Từ luồng Camera đến Cơ sở dữ liệu MERN
+            </h3>
+            <p style={{ color: 'var(--text-muted)', marginTop: '8px', fontSize: '0.9375rem' }}>
+              Hệ thống được thiết kế theo mô hình phân tầng độc lập, đảm bảo khả năng mở rộng và tốc độ phản hồi tức thời.
+            </p>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gap: '20px',
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: '#ffffff',
+                padding: '24px',
+                borderRadius: '20px',
+                border: '1px solid var(--border-subtle)',
+              }}
+            >
+              <div style={{ fontSize: '0.8125rem', fontFamily: 'var(--font-mono)', color: 'var(--text-dim)', marginBottom: '8px' }}>
+                BƯỚC 01
+              </div>
+              <h4 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '6px' }}>
+                Webcam Stream
+              </h4>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                Thu nhận khung hình trực tiếp với tốc độ 30 FPS qua giao thức chuẩn OpenCV / trình duyệt.
               </p>
             </div>
 
             <div
               style={{
-                background: 'rgba(255, 255, 255, 0.03)',
-                padding: '20px',
-                borderRadius: '14px',
-                border: '1px solid var(--border-glass)',
+                backgroundColor: '#ffffff',
+                padding: '24px',
+                borderRadius: '20px',
+                border: '1px solid var(--border-subtle)',
               }}
             >
-              <div style={{ color: '#06b6d4', fontWeight: 800, fontSize: '1.1rem', marginBottom: '6px' }}>
-                02. YOLOv11 Crop
+              <div style={{ fontSize: '0.8125rem', fontFamily: 'var(--font-mono)', color: 'var(--text-dim)', marginBottom: '8px' }}>
+                BƯỚC 02
               </div>
-              <p style={{ fontSize: '0.825rem', color: 'var(--text-muted)' }}>
-                YOLOv11 xác định tọa độ khung mặt (Bounding Box), căn chỉnh góc mặt và loại bỏ nhiễu.
+              <h4 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '6px' }}>
+                YOLOv11 Crop
+              </h4>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                Xác định tọa độ vùng mặt, căn chỉnh góc xoay và gửi ảnh đã chuẩn hóa đến bộ trích xuất.
               </p>
             </div>
 
             <div
               style={{
-                background: 'rgba(255, 255, 255, 0.03)',
-                padding: '20px',
-                borderRadius: '14px',
-                border: '1px solid var(--border-glass)',
+                backgroundColor: '#ffffff',
+                padding: '24px',
+                borderRadius: '20px',
+                border: '1px solid var(--border-subtle)',
               }}
             >
-              <div style={{ color: '#a855f7', fontWeight: 800, fontSize: '1.1rem', marginBottom: '6px' }}>
-                03. Trích Xuất 128-d
+              <div style={{ fontSize: '0.8125rem', fontFamily: 'var(--font-mono)', color: 'var(--text-dim)', marginBottom: '8px' }}>
+                BƯỚC 03
               </div>
-              <p style={{ fontSize: '0.825rem', color: 'var(--text-muted)' }}>
-                Mạng nơ-ron dlib ResNet tính toán 128 giá trị nhúng và so sánh Euclidean distance.
+              <h4 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '6px' }}>
+                ResNet 128-d
+              </h4>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                Tính toán độ tương đồng với danh bạ vector, xác thực tên người dùng và tỷ lệ tin cậy.
               </p>
             </div>
 
             <div
               style={{
-                background: 'rgba(255, 255, 255, 0.03)',
-                padding: '20px',
-                borderRadius: '14px',
-                border: '1px solid var(--border-glass)',
+                backgroundColor: '#ffffff',
+                padding: '24px',
+                borderRadius: '20px',
+                border: '1px solid var(--border-subtle)',
               }}
             >
-              <div style={{ color: '#10b981', fontWeight: 800, fontSize: '1.1rem', marginBottom: '6px' }}>
-                04. Ghi Nhận MERN
+              <div style={{ fontSize: '0.8125rem', fontFamily: 'var(--font-mono)', color: 'var(--text-dim)', marginBottom: '8px' }}>
+                BƯỚC 04
               </div>
-              <p style={{ fontSize: '0.825rem', color: 'var(--text-muted)' }}>
-                Tự động gửi HTTP POST đến Express Server, lưu vào MongoDB và hiển thị lên Dashboard.
+              <h4 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '6px' }}>
+                Express & MongoDB
+              </h4>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                Ghi nhận lịch sử điểm danh qua REST API và cập nhật theo thời gian thực trên trang Quản trị.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Call To Action Banner */}
+      {/* Call to Action Final Section */}
       <section
         style={{
           maxWidth: '1280px',
-          margin: '60px auto 0',
+          margin: '0 auto 120px',
           padding: '0 24px',
+          textAlign: 'center',
         }}
       >
         <div
-          className="glass-card"
+          className="minimal-card"
           style={{
-            padding: '48px 32px',
-            textAlign: 'center',
-            background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(59, 130, 246, 0.15), rgba(168, 85, 247, 0.1))',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
+            padding: '64px 32px',
+            backgroundColor: 'var(--text-primary)',
+            color: '#ffffff',
+            borderRadius: 'var(--rounded-md)',
           }}
         >
-          <h2 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '12px' }}>
-            Sẵn sàng khám phá mô hình?
+          <h2
+            style={{
+              fontSize: 'clamp(2.2rem, 4vw, 3.2rem)',
+              fontWeight: 700,
+              color: '#ffffff',
+              letterSpacing: '-0.04em',
+              marginBottom: '16px',
+            }}
+          >
+            Trải nghiệm hệ thống ngay hôm nay
           </h2>
-          <p style={{ color: 'var(--text-muted)', maxWidth: '580px', margin: '0 auto 28px', fontSize: '1rem' }}>
-            Bạn có thể thử nghiệm trực tiếp camera trên trình duyệt hoặc truy cập ngay trung tâm quản trị để xem lịch sử điểm danh.
+          <p
+            style={{
+              fontSize: '1.125rem',
+              color: '#a1a1aa',
+              maxWidth: '56ch',
+              margin: '0 auto 36px',
+              lineHeight: 1.6,
+            }}
+          >
+            Khởi động camera trực tiếp trên trình duyệt để kiểm tra khả năng nhận diện hoặc xem báo cáo chấm công tại trang quản trị.
           </p>
 
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', flexWrap: 'wrap' }}>
-            <Link to="/demo" className="btn-glass-cyan" style={{ padding: '12px 28px' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', flexWrap: 'wrap' }}>
+            <Link
+              to="/demo"
+              style={{
+                backgroundColor: '#ffffff',
+                color: 'var(--text-primary)',
+                padding: '14px 32px',
+                borderRadius: 'var(--rounded-sm)',
+                fontWeight: 600,
+                fontSize: '1rem',
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'all 0.2s ease',
+              }}
+            >
               <ScanLine size={18} />
               Mở trang Thử nghiệm AI
             </Link>
-            <Link to="/admin" className="btn-glass-secondary" style={{ padding: '12px 28px' }}>
+
+            <Link
+              to="/admin"
+              style={{
+                backgroundColor: 'transparent',
+                color: '#ffffff',
+                border: '1.5px solid rgba(255, 255, 255, 0.25)',
+                padding: '14px 30px',
+                borderRadius: 'var(--rounded-sm)',
+                fontWeight: 600,
+                fontSize: '1rem',
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'all 0.2s ease',
+              }}
+            >
               Trang Quản trị (/admin)
+              <ArrowRight size={16} />
             </Link>
           </div>
         </div>
