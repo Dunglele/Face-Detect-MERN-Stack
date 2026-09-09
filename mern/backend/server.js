@@ -27,6 +27,111 @@ if (process.env.NODE_ENV !== 'production') {
 app.use('/api/users', userRoutes);
 app.use('/api/attendance', attendanceRoutes);
 
+// AI Engine (Python FastAPI port 8000) Proxy Routes
+const PYTHON_AI_URL = process.env.PYTHON_SERVICE_URL || 'http://localhost:8000';
+
+app.get('/api/ai/status', async (req, res) => {
+  try {
+    const response = await fetch(`${PYTHON_AI_URL}/health`);
+    const data = await response.json();
+    res.json({ success: true, ai_online: true, data });
+  } catch (error) {
+    res.json({
+      success: false,
+      ai_online: false,
+      message: 'Python AI server (api_server.py) chưa chạy tại port 8000',
+      error: error.message
+    });
+  }
+});
+
+app.post('/api/ai/predict', async (req, res) => {
+  try {
+    const response = await fetch(`${PYTHON_AI_URL}/predict`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body)
+    });
+    const data = await response.json();
+    res.status(response.status).json(data);
+  } catch (error) {
+    res.status(503).json({
+      success: false,
+      message: 'Không thể kết nối đến Python AI Engine (port 8000). Hãy chạy: python face_detect/api_server.py',
+      error: error.message
+    });
+  }
+});
+
+// Proxy route đăng ký khuôn mặt trực tiếp sang Python AI
+app.post('/api/ai/register-face', async (req, res) => {
+  try {
+    const response = await fetch(`${PYTHON_AI_URL}/api/ai/register-face`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body)
+    });
+    const data = await response.json();
+    res.status(response.status).json(data);
+  } catch (error) {
+    res.status(503).json({
+      success: false,
+      message: 'Không thể kết nối đến Python AI Engine (port 8000). Hãy chạy: python face_detect/api_server.py',
+      error: error.message
+    });
+  }
+});
+
+// Proxy route đồng bộ vector từ MongoDB vào AI RAM
+app.post('/api/ai/sync-mongo', async (req, res) => {
+  try {
+    const response = await fetch(`${PYTHON_AI_URL}/api/ai/sync-mongo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const data = await response.json();
+    res.status(response.status).json(data);
+  } catch (error) {
+    res.status(503).json({
+      success: false,
+      message: 'Không thể kết nối đến Python AI Engine (port 8000).',
+      error: error.message
+    });
+  }
+});
+
+// Proxy route lấy danh sách người dùng đã nạp vector từ Python AI
+app.get('/api/ai/users', async (req, res) => {
+  try {
+    const response = await fetch(`${PYTHON_AI_URL}/api/ai/users`);
+    const data = await response.json();
+    res.status(response.status).json(data);
+  } catch (error) {
+    res.status(503).json({
+      success: false,
+      message: 'Không thể kết nối đến Python AI Engine (port 8000).',
+      error: error.message
+    });
+  }
+});
+
+// Proxy route xóa nhân sự khỏi Python AI Engine
+app.delete('/api/ai/users/:name', async (req, res) => {
+  try {
+    const response = await fetch(`${PYTHON_AI_URL}/api/ai/users/${encodeURIComponent(req.params.name)}`, {
+      method: 'DELETE',
+    });
+    const data = await response.json();
+    res.status(response.status).json(data);
+  } catch (error) {
+    res.status(503).json({
+      success: false,
+      message: 'Không thể kết nối đến Python AI Engine (port 8000).',
+      error: error.message
+    });
+  }
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.status(200).json({

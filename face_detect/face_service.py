@@ -12,7 +12,14 @@ import cv2
 import face_recognition
 import numpy as np
 
+try:
+    import pymongo
+    PYMONGO_AVAILABLE = True
+except ImportError:
+    PYMONGO_AVAILABLE = False
+
 from config import (
+    BASE_DIR,
     ENCODINGS_FILE,
     FACES_DIR,
     YOLO_MODEL_PATH,
@@ -62,8 +69,222 @@ class FaceService:
         self.known_names: List[str] = []
         self.users_meta: Dict[str, Dict[str, Any]] = {}
         self.yolo_model = None
+
+        # Kết nối MongoDB
+        self.mongo_client = None
+        self.db = None
+        self.users_collection = None
+        self.mongo_connected = False
+
         self._init_yolo()
-        self.load_database()
+        self._init_mongo()
+
+        # Nạp dữ liệu: Ưu tiên nạp từ MongoDB, fallback sang file encodings.pkl
+        loaded_from_mongo = self.load_database_from_mongo()
+        if not loaded_from_mongo:
+            self.load_database()
+
+    def _get_mongo_uri(self) -> str:
+        """Tìm chuỗi kết nối MongoDB từ biến môi trường hoặc file mern/backend/.env"""
+        uri = os.environ.get("MONGO_URI")
+        if uri:
+            return uri
+        backend_env = BASE_DIR.parent / "mern" / "backend" / ".env"
+        if backend_env.exists():
+            try:
+                for line in backend_env.read_text(encoding="utf-8").splitlines():
+                    clean_line = line.strip()
+                    if clean_line.startswith("MONGO_URI="):
+                        return clean_line.split("=", 1)[1].strip()
+            except Exception:
+                pass
+        return "mongodb://localhost:27017/test"
+
+    def _init_mongo(self):
+        """Khởi tạo kết nối MongoDB để lưu trữ & nạp vector đặc trưng 128-d"""
+        if not PYMONGO_AVAILABLE:
+            print("[!] PyMongo chua duoc cai dat. Se su dung che do luu tru encodings.pkl cuc bo.")
+            return
+
+        try:
+            uri = self._get_mongo_uri()
+            self.mongo_client = pymongo.MongoClient(uri, serverSelectionTimeoutMS=4000)
+            try:
+                self.db = self.mongo_client.get_default_database()
+            except Exception:
+                self.db = self.mongo_client["test"]
+            self.db.command("ping")
+            self.users_collection = self.db["users"]
+            self.mongo_connected = True
+            print(f"[*] Ket noi MongoDB thanh cong den DB '{self.db.name}', collection 'users'")
+        except Exception as e:
+            self.mongo_connected = False
+            self.mongo_client = None
+            self.db = None
+            self.users_collection = None
+            print(f"[!] Khong the ket noi MongoDB ({e}), se su dung che do luu tru encodings.pkl cuc bo.")
+
+    def load_database_from_mongo(self) -> bool:
+        """
+        Nạp toàn bộ vector đặc trưng từ MongoDB collection 'users'.
+        Nếu MongoDB chưa có vector nào nhưng encodings.pkl có dữ liệu,
+        tự động đẩy vector từ encodings.pkl lên MongoDB.
+        """
+        if not self.mongo_connected or self.users_collection is None:
+            return False
+
+        try:
+            cursor = self.users_collection.find({
+                "$or": [
+                    {"faceDescriptors.0": {"$exists": True}},
+                    {"isFaceEnrolled": True}
+                ]
+            })
+            user_docs = list(cursor)
+
+            if not user_docs:
+                print("[*] MongoDB chua co vector khuon mat nao. Kiem tra file encodings.pkl cuc bo...")
+                if ENCODINGS_FILE.exists():
+                    self.load_database()
+                    if len(self.known_encodings) > 0:
+                        print(f"[*] Dang tu dong dong bo {len(self.known_encodings)} vectors cua {len(self.users_meta)} nguoi tu encodings.pkl len MongoDB...")
+                        self.sync_local_to_mongo()
+                        return True
+                return False
+
+            new_encodings = []
+            new_names = []
+            new_meta = {}
+
+            for doc in user_docs:
+                name = doc.get("name", "").strip()
+                if not name:
+                    continue
+                descriptors = doc.get("faceDescriptors", [])
+                if not descriptors:
+                    continue
+
+                for desc in descriptors:
+                    if len(desc) == 128:
+                        new_encodings.append(np.array(desc, dtype=np.float64))
+                        new_names.append(name)
+
+                new_meta[name] = {
+                    "sample_count": len(descriptors),
+                    "employee_id": doc.get("employeeId", ""),
+                    "department": doc.get("department", "General"),
+                    "email": doc.get("email", ""),
+                    "mongo_id": str(doc.get("_id", "")),
+                    "registered_at": str(doc.get("updatedAt", doc.get("createdAt", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))))
+                }
+
+            self.known_encodings = new_encodings
+            self.known_names = new_names
+            self.users_meta = new_meta
+            print(f"[*] Da nap thanh cong {len(self.known_encodings)} vectors cua {len(self.users_meta)} nguoi dung tu MongoDB!")
+
+            # Cập nhật sao lưu vào encodings.pkl
+            self.save_database()
+            return True
+
+        except Exception as e:
+            print(f"[!] Loi khi doc vector tu MongoDB: {e}")
+            return False
+
+    def sync_local_to_mongo(self) -> bool:
+        """Đồng bộ toàn bộ vector đang có trong RAM / encodings.pkl lên MongoDB"""
+        if not self.mongo_connected or self.users_collection is None:
+            return False
+
+        try:
+            grouped: Dict[str, List[List[float]]] = {}
+            for name, enc in zip(self.known_names, self.known_encodings):
+                if name not in grouped:
+                    grouped[name] = []
+                grouped[name].append(enc.tolist() if isinstance(enc, np.ndarray) else [float(x) for x in enc])
+
+            for idx, (name, descs) in enumerate(grouped.items()):
+                meta = self.users_meta.get(name, {})
+                emp_id = meta.get("employee_id") or f"EMP-{idx+1:03d}"
+                dept = meta.get("department") or "AI & Engineering"
+                email = meta.get("email") or f"{name.lower().replace(' ', '')}@company.com"
+
+                self.users_collection.update_one(
+                    {"name": name},
+                    {
+                        "$set": {
+                            "name": name,
+                            "employeeId": emp_id,
+                            "department": dept,
+                            "email": email,
+                            "isFaceEnrolled": True,
+                            "faceSampleCount": len(descs),
+                            "faceDescriptors": descs,
+                            "updatedAt": datetime.now()
+                        },
+                        "$setOnInsert": {
+                            "createdAt": datetime.now()
+                        }
+                    },
+                    upsert=True
+                )
+            print(f"[*] Da dong bo {len(grouped)} nguoi dung len MongoDB collection 'users' thanh cong!")
+            return True
+        except Exception as e:
+            print(f"[!] Loi khi dong bo vector len MongoDB: {e}")
+            return False
+
+    def register_user_mongo(
+        self,
+        name: str,
+        encodings: List[np.ndarray],
+        sample_images: Optional[List[np.ndarray]] = None,
+        employee_id: Optional[str] = None,
+        department: Optional[str] = None,
+        email: Optional[str] = None
+    ) -> bool:
+        """
+        Đăng ký người dùng mới:
+        1. Lưu mảng vector 128-d vào MongoDB collection 'users'
+        2. Nạp ngay vào bộ nhớ RAM (self.known_encodings)
+        3. Lưu bản sao vào encodings.pkl và lưu ảnh mẫu vào data/faces/
+        """
+        if not encodings:
+            return False
+
+        name = name.strip()
+        descs = [enc.tolist() if isinstance(enc, np.ndarray) else [float(x) for x in enc] for enc in encodings]
+
+        # Cập nhật trên MongoDB nếu có kết nối
+        if self.mongo_connected and self.users_collection is not None:
+            try:
+                set_data = {
+                    "name": name,
+                    "isFaceEnrolled": True,
+                    "faceSampleCount": len(descs),
+                    "faceDescriptors": descs,
+                    "updatedAt": datetime.now(),
+                    "employeeId": employee_id or f"EMP-{int(time.time()) % 10000:04d}",
+                    "department": department or "AI & Engineering",
+                    "email": email or f"{name.lower().replace(' ', '')}@company.com"
+                }
+
+                self.users_collection.update_one(
+                    {"name": name},
+                    {
+                        "$set": set_data,
+                        "$setOnInsert": {
+                            "createdAt": datetime.now()
+                        }
+                    },
+                    upsert=True
+                )
+                print(f"[*] Da luu {len(descs)} vector cua '{name}' vao MongoDB thanh cong!")
+            except Exception as e:
+                print(f"[!] Loi luu MongoDB cho '{name}': {e}")
+
+        # Cập nhật bộ nhớ cục bộ và file encodings.pkl
+        return self.register_user(name, encodings, sample_images)
 
     def _init_yolo(self):
         """Khởi tạo mô hình YOLO Face nếu có sẵn file mô hình và thư viện ultralytics"""
@@ -199,6 +420,14 @@ class FaceService:
                 user_face_dir.rmdir()
             except Exception:
                 pass
+
+        # Xóa khỏi MongoDB nếu có kết nối
+        if self.mongo_connected and self.users_collection is not None:
+            try:
+                self.users_collection.delete_one({"name": name})
+                print(f"[*] Da xoa nguoi dung '{name}' khoi MongoDB collection 'users'")
+            except Exception as e:
+                print(f"[!] Loi khi xoa '{name}' khoi MongoDB: {e}")
 
         self.save_database()
         return True

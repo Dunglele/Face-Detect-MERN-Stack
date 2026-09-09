@@ -11,7 +11,10 @@ import {
   CheckCircle2,
   Database,
   ArrowUpRight,
-  Filter
+  Filter,
+  Camera,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 
 const API_BASE = 'http://localhost:5000/api';
@@ -22,6 +25,11 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddUserModal, setShowAddUserModal] = useState(false);
+
+  // Delete user state
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteFeedback, setDeleteFeedback] = useState({ type: '', message: '' });
 
   // New user form state
   const [newUserName, setNewUserName] = useState('');
@@ -193,6 +201,44 @@ export default function AdminPage() {
     setNewUserName('');
     setNewEmpId('');
     setShowAddUserModal(false);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!userToDelete) return;
+    setIsDeleting(true);
+    setDeleteFeedback({ type: '', message: '' });
+
+    try {
+      const res = await fetch(`${API_BASE}/users/${userToDelete._id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Không thể xóa nhân viên');
+      }
+
+      // Xóa khỏi state giao diện
+      setUsers((prev) => prev.filter((u) => u._id !== userToDelete._id));
+      setStats((prev) => ({
+        ...prev,
+        totalUsers: Math.max(0, prev.totalUsers - 1),
+        enrolledUsers: userToDelete.isFaceEnrolled ? Math.max(0, prev.enrolledUsers - 1) : prev.enrolledUsers,
+      }));
+
+      setDeleteFeedback({
+        type: 'success',
+        message: `Đã xóa thành công nhân viên "${userToDelete.name}" và toàn bộ vector khuôn mặt khỏi MongoDB Atlas!`,
+      });
+      setUserToDelete(null);
+    } catch (err) {
+      setDeleteFeedback({
+        type: 'error',
+        message: `Lỗi khi xóa nhân viên: ${err.message}`,
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleSimulateCheckIn = async () => {
@@ -569,6 +615,35 @@ export default function AdminPage() {
             </button>
           </div>
 
+          {/* Feedback alert banner */}
+          {deleteFeedback.message && (
+            <div
+              style={{
+                marginBottom: '20px',
+                padding: '12px 18px',
+                borderRadius: '14px',
+                backgroundColor: deleteFeedback.type === 'success' ? '#eefbf4' : '#fef2f2',
+                border: `1px solid ${deleteFeedback.type === 'success' ? '#c7f2da' : '#fecaca'}`,
+                color: deleteFeedback.type === 'success' ? '#108a55' : '#991b1b',
+                fontSize: '0.875rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {deleteFeedback.type === 'success' ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                <span>{deleteFeedback.message}</span>
+              </div>
+              <button
+                onClick={() => setDeleteFeedback({ type: '', message: '' })}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontWeight: 700 }}
+              >
+                &times;
+              </button>
+            </div>
+          )}
+
           <div
             style={{
               display: 'grid',
@@ -584,35 +659,89 @@ export default function AdminPage() {
                   border: '1px solid var(--border-subtle)',
                   borderRadius: '20px',
                   padding: '20px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <h4 style={{ fontSize: '1.0625rem', fontWeight: 700 }}>
-                      {u.name}
-                    </h4>
-                    <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                      {u.employeeId} &bull; {u.department}
-                    </p>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <h4 style={{ fontSize: '1.0625rem', fontWeight: 700 }}>
+                        {u.name}
+                      </h4>
+                      <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        {u.employeeId} &bull; {u.department}
+                      </p>
+                    </div>
+                    <span className={`badge-tag ${u.isFaceEnrolled ? 'active' : 'pending'}`}>
+                      {u.isFaceEnrolled ? 'Đã học mặt' : 'Chưa nạp'}
+                    </span>
                   </div>
-                  <span className={`badge-tag ${u.isFaceEnrolled ? 'active' : 'pending'}`}>
-                    {u.isFaceEnrolled ? 'Đã học mặt' : 'Chưa nạp'}
-                  </span>
+
+                  <div
+                    style={{
+                      marginTop: '16px',
+                      paddingTop: '12px',
+                      borderTop: '1px solid var(--border-subtle)',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      fontSize: '0.8125rem',
+                      color: 'var(--text-muted)',
+                    }}
+                  >
+                    <span style={{ fontWeight: 600, color: u.isFaceEnrolled ? '#108a55' : 'var(--text-muted)' }}>
+                      {u.faceDescriptors?.length || u.faceSampleCount || (u.isFaceEnrolled ? 20 : 0)} vectors MongoDB
+                    </span>
+                    <span style={{ fontFamily: 'var(--font-mono)' }}>ID: {u._id ? String(u._id).slice(-4) : 'N/A'}</span>
+                  </div>
                 </div>
 
-                <div
-                  style={{
-                    marginTop: '16px',
-                    paddingTop: '12px',
-                    borderTop: '1px solid var(--border-subtle)',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    fontSize: '0.8125rem',
-                    color: 'var(--text-muted)',
-                  }}
-                >
-                  <span>Mẫu ảnh: {u.faceSampleCount || (u.isFaceEnrolled ? 20 : 0)} frames</span>
-                  <span style={{ fontFamily: 'var(--font-mono)' }}>ID: {u._id.slice(-4)}</span>
+                {/* Card Actions: Enroll & Delete */}
+                <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                  <Link
+                    to={`/demo?mode=enroll&name=${encodeURIComponent(u.name)}&empId=${encodeURIComponent(u.employeeId || '')}&dept=${encodeURIComponent(u.department || '')}`}
+                    className="btn-outline"
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      padding: '8px 10px',
+                      fontSize: '0.75rem',
+                      borderRadius: '10px',
+                      textDecoration: 'none',
+                      backgroundColor: u.isFaceEnrolled ? '#ffffff' : '#f0fdf4',
+                      borderColor: u.isFaceEnrolled ? 'var(--border-subtle)' : '#bbf7d0',
+                      color: u.isFaceEnrolled ? 'var(--text-primary)' : '#15803d',
+                    }}
+                  >
+                    <Camera size={13} />
+                    {u.isFaceEnrolled ? 'Thêm góc mặt' : 'Đăng ký mặt'}
+                  </Link>
+
+                  <button
+                    onClick={() => setUserToDelete(u)}
+                    className="btn-outline"
+                    title={`Xóa nhân viên ${u.name}`}
+                    style={{
+                      padding: '8px 12px',
+                      fontSize: '0.75rem',
+                      borderRadius: '10px',
+                      color: '#dc2626',
+                      borderColor: '#fecaca',
+                      backgroundColor: '#fef2f2',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <Trash2 size={13} />
+                  </button>
                 </div>
               </div>
             ))}
@@ -779,6 +908,96 @@ export default function AdminPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete User Confirmation Modal */}
+      {userToDelete && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.45)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 350,
+            padding: '20px',
+          }}
+        >
+          <div
+            className="minimal-card"
+            style={{
+              width: '100%',
+              maxWidth: '440px',
+              padding: '28px',
+              backgroundColor: '#ffffff',
+              border: '1px solid #fecaca',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+              <div
+                style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '12px',
+                  backgroundColor: '#fef2f2',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#dc2626',
+                  flexShrink: 0,
+                }}
+              >
+                <AlertTriangle size={22} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#991b1b', margin: 0 }}>
+                  Xác nhận xóa nhân viên
+                </h3>
+                <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                  Hành động này không thể hoàn tác
+                </p>
+              </div>
+            </div>
+
+            <p style={{ fontSize: '0.9375rem', color: 'var(--text-primary)', lineHeight: 1.5, marginBottom: '16px' }}>
+              Bạn có chắc chắn muốn xóa nhân viên <strong>"{userToDelete.name}"</strong> ({userToDelete.employeeId || 'Chưa có mã'}) khỏi hệ thống?
+            </p>
+
+            <div style={{ backgroundColor: '#fff1f2', borderRadius: '12px', padding: '12px 14px', marginBottom: '24px', fontSize: '0.8125rem', color: '#9f1239', border: '1px solid #ffe4e6' }}>
+              ⚠️ Toàn bộ dữ liệu hồ sơ và <strong>{userToDelete.faceDescriptors?.length || userToDelete.faceSampleCount || (userToDelete.isFaceEnrolled ? 20 : 0)} vector khuôn mặt 128-d</strong> sẽ bị xóa vĩnh viễn khỏi MongoDB Atlas và bộ nhớ Python AI.
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={() => setUserToDelete(null)}
+                disabled={isDeleting}
+                style={{ padding: '8px 18px' }}
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="btn-primary"
+                style={{
+                  backgroundColor: '#dc2626',
+                  borderColor: '#dc2626',
+                  padding: '8px 20px',
+                  color: '#ffffff',
+                }}
+              >
+                <Trash2 size={14} />
+                {isDeleting ? 'Đang xóa...' : 'Xác nhận xóa vĩnh viễn'}
+              </button>
+            </div>
           </div>
         </div>
       )}

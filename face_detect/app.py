@@ -1,9 +1,11 @@
 import os
 import sys
 import time
+import threading
 import warnings
 from datetime import datetime
 from typing import Tuple, Optional
+import requests
 
 # Tắt các cảnh báo không cần thiết từ thư viện nền tảng
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -208,8 +210,26 @@ def draw_checkin_success_modal(frame, name: str, confidence: float, time_str: st
                 (card_x + 30, card_y + card_h - 16), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (190, 190, 190), 1, cv2.LINE_AA)
 
 
+def _send_to_mern_api(name: str, confidence: float, snap_path_str: str = ""):
+    """Gửi dữ liệu điểm danh sang MERN Backend (Port 5000) qua luồng ngầm (non-blocking)"""
+    try:
+        url = "http://localhost:5000/api/attendance"
+        payload = {
+            "userName": name,
+            "confidence": round(confidence, 1),
+            "checkInType": "Check-in",
+            "snapshotUrl": snap_path_str
+        }
+        res = requests.post(url, json=payload, timeout=2.0)
+        if res.status_code == 201:
+            print(f"[*] [MERN Sync] Da dong bo diem danh '{name}' vao CSDL MongoDB.")
+    except Exception:
+        # Nếu backend chưa chạy thì bỏ qua nhẹ nhàng, không làm gián đoạn camera
+        pass
+
+
 def log_attendance(name: str, confidence: float, time_str: str, frame: Optional[np.ndarray] = None):
-    """Ghi nhật ký chấm công vào file attendance.csv và lưu ảnh minh chứng"""
+    """Ghi nhật ký chấm công vào file attendance.csv, lưu ảnh minh chứng và đồng bộ MERN Stack"""
     is_new = not ATTENDANCE_FILE.exists()
     try:
         with open(ATTENDANCE_FILE, "a", encoding="utf-8") as f:
@@ -219,14 +239,23 @@ def log_attendance(name: str, confidence: float, time_str: str, frame: Optional[
     except Exception as e:
         print(f"[!] Lỗi khi ghi log điểm danh: {e}")
 
+    snap_path_str = ""
     if frame is not None:
         try:
             safe_name = name.replace(" ", "_")
             snap_time = datetime.now().strftime("%Y%m%d_%H%M%S")
             snap_path = CHECKIN_DIR / f"{safe_name}_{snap_time}.jpg"
             cv2.imwrite(str(snap_path), frame)
+            snap_path_str = str(snap_path)
         except Exception:
             pass
+
+    # Kích hoạt gửi sang MERN API trong luồng ngầm
+    threading.Thread(
+        target=_send_to_mern_api,
+        args=(name, confidence, snap_path_str),
+        daemon=True
+    ).start()
 
 
 class FaceApp:
