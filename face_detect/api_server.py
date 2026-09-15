@@ -56,9 +56,10 @@ class RegisterFaceRequest(BaseModel):
 @app.get("/")
 def root():
     return {
-        "service": "Face Recognition AI Service",
-        "engine": "YOLOv11 Face + dlib ResNet",
+        "service": "Face Recognition & Anti-Spoofing AI Service",
+        "engine": "YOLOv11 Face + dlib ResNet + MiniFASNet",
         "yolo_loaded": face_service.yolo_model is not None,
+        "anti_spoof_active": face_service.anti_spoof_predictor is not None and face_service.anti_spoof_predictor.is_ready(),
         "mongo_connected": face_service.mongo_connected,
         "database": face_service.db.name if face_service.db is not None else "local encodings.pkl",
         "users_count": len(face_service.users_meta),
@@ -73,12 +74,15 @@ def health():
     return {
         "status": "healthy",
         "model": "yolov11n-face.pt",
+        "anti_spoof_model": "MiniFASNetV2 + MiniFASNetV1SE",
         "yolo_active": face_service.yolo_model is not None,
+        "anti_spoof_active": face_service.anti_spoof_predictor is not None and face_service.anti_spoof_predictor.is_ready(),
         "mongo_connected": face_service.mongo_connected,
         "database": face_service.db.name if face_service.db is not None else "local encodings.pkl",
         "enrolled_users": list(face_service.users_meta.keys()),
         "total_encodings": len(face_service.known_encodings)
     }
+
 
 
 @app.get("/api/users")
@@ -232,6 +236,10 @@ def _process_image_array(frame: np.ndarray, tolerance: float = TOLERANCE_THRESHO
             "confidence": item["confidence"],
             "is_match": item["is_match"],
             "distance": item["distance"],
+            "is_real": item.get("is_real", True),
+            "liveness_score": item.get("liveness_score", 100.0),
+            "liveness_status": item.get("liveness_status", "REAL"),
+            "spoof_type": item.get("spoof_type", "real"),
             "bbox": {
                 "top": int(top),
                 "right": int(right),
@@ -252,20 +260,85 @@ def _process_image_array(frame: np.ndarray, tolerance: float = TOLERANCE_THRESHO
         if item["is_match"] and (top_match is None or item["confidence"] > top_match["confidence"]):
             top_match = face_data
 
-    # Tự động ghi log điểm danh nếu được yêu cầu và có mặt khớp
+    # Tự động ghi log điểm danh: CHỈ CHO PHÉP KHI ĐƯỢC XÁC THỰC LÀ NGƯỜI THẬT (is_real == True)
+    spoof_alert = False
     if auto_checkin and top_match and top_match["is_match"]:
-        time_str = time.strftime("%Y-%m-%d %H:%M:%S")
-        log_attendance(top_match["name"], top_match["confidence"], time_str, frame)
+        if top_match.get("is_real", True):
+            time_str = time.strftime("%Y-%m-%d %H:%M:%S")
+            log_attendance(top_match["name"], top_match["confidence"], time_str, frame)
+        else:
+            spoof_alert = True
+            print(f"[!] CẢNH BÁO: Phát hiện giả mạo khuôn mặt cho '{top_match['name']}' (Liveness: {top_match.get('liveness_score')}%)! Từ chối chấm công.")
 
     return {
         "success": True,
         "faces_detected": len(formatted_faces),
         "faces": formatted_faces,
         "top_match": top_match,
+        "spoof_alert": spoof_alert,
+        "anti_spoof_active": face_service.anti_spoof_predictor is not None and face_service.anti_spoof_predictor.is_ready(),
         "image_size": {"width": w, "height": h},
         "inference_time_ms": inference_ms,
-        "model_used": "YOLOv11 Face + dlib ResNet" if face_service.yolo_model is not None else "dlib HOG + ResNet"
+        "model_used": "YOLOv11 Face + dlib ResNet + MiniFASNet" if face_service.yolo_model is not None else "dlib HOG + ResNet"
     }
+
+
+class LivenessCheckRequest(BaseModel):
+    image: str  # Base64 image string
+
+
+@app.post("/api/ai/liveness-check")
+@app.post("/liveness-check")
+async def liveness_check(req: LivenessCheckRequest):
+    """Kiểm tra chuyên dụng tính xác thực người thật (Face Anti-Spoofing / MiniFASNet)"""
+    image_str = req.image
+    if "," in image_str:
+        image_str = image_str.split(",", 1)[1]
+
+    try:
+        image_bytes = base64.b64decode(image_str)
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if frame is None:
+            raise ValueError("Không thể giải mã ảnh")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Lỗi giải mã ảnh Base64: {e}")
+
+    # Phát hiện khuôn mặt
+    boxes = face_service.detect_face_boxes(frame)
+    if not boxes:
+        return {
+            "success": False,
+            "message": "Không tìm thấy khuôn mặt nào trong ảnh",
+            "faces_count": 0
+        }
+
+    results = []
+    for box in boxes:
+        top, right, bottom, left = box
+        if face_service.anti_spoof_predictor is not None and face_service.anti_spoof_predictor.is_ready():
+            res = face_service.anti_spoof_predictor.predict(
+                frame,
+                (top, right, bottom, left),
+                bbox_format="top_right_bottom_left"
+            )
+        else:
+            res = {"is_real": True, "liveness_score": 100.0, "liveness_status": "REAL", "spoof_type": "real"}
+
+        results.append({
+            "box": {"top": int(top), "right": int(right), "bottom": int(bottom), "left": int(left)},
+            "is_real": res["is_real"],
+            "liveness_score": res["liveness_score"],
+            "liveness_status": res["liveness_status"],
+            "spoof_type": res.get("spoof_type", "real")
+        })
+
+    return {
+        "success": True,
+        "faces_count": len(results),
+        "results": results
+    }
+
 
 
 @app.post("/predict")

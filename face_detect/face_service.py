@@ -28,8 +28,18 @@ from config import (
     TOLERANCE_THRESHOLD,
     FRAME_SCALE,
     LEGACY_PIC_DIR,
-    SAMPLE_INTERVAL_SECONDS
+    SAMPLE_INTERVAL_SECONDS,
+    ANTI_SPOOF_DIR,
+    ANTI_SPOOF_ENABLED,
+    ANTI_SPOOF_THRESHOLD
 )
+
+try:
+    from anti_spoof import AntiSpoofPredictor
+    ANTI_SPOOF_AVAILABLE = True
+except ImportError:
+    ANTI_SPOOF_AVAILABLE = False
+
 
 # Thử import YOLO từ ultralytics
 try:
@@ -69,6 +79,7 @@ class FaceService:
         self.known_names: List[str] = []
         self.users_meta: Dict[str, Dict[str, Any]] = {}
         self.yolo_model = None
+        self.anti_spoof_predictor = None
 
         # Kết nối MongoDB
         self.mongo_client = None
@@ -77,6 +88,7 @@ class FaceService:
         self.mongo_connected = False
 
         self._init_yolo()
+        self._init_anti_spoof()
         self._init_mongo()
 
         # Nạp dữ liệu: Ưu tiên nạp từ MongoDB, fallback sang file encodings.pkl
@@ -300,6 +312,30 @@ class FaceService:
                 print(f"[!] Khong tim thay file {YOLO_MODEL_PATH}, se su dung dlib HOG.")
         else:
             self.yolo_model = None
+
+    def _init_anti_spoof(self):
+        """Khởi tạo mô hình chống giả mạo MiniFASNet (Silent-Face-Anti-Spoofing)"""
+        if not ANTI_SPOOF_ENABLED:
+            print("[*] Tính năng Anti-Spoofing MiniFASNet đã bị tắt trong config.")
+            return
+
+        if not ANTI_SPOOF_AVAILABLE:
+            print("[!] Không tìm thấy module anti_spoof. Bỏ qua khởi tạo Anti-Spoofing.")
+            return
+
+        try:
+            self.anti_spoof_predictor = AntiSpoofPredictor(
+                models_dir=ANTI_SPOOF_DIR,
+                threshold=ANTI_SPOOF_THRESHOLD,
+                auto_download=True
+            )
+            if self.anti_spoof_predictor.is_ready():
+                print(f"[*] Đã khởi tạo Anti-Spoofing MiniFASNet thành công ({len(self.anti_spoof_predictor.models)} models, ngưỡng {ANTI_SPOOF_THRESHOLD*100:.0f}%)")
+            else:
+                print("[!] Chưa nạp được trọng số MiniFASNet nào.")
+        except Exception as e:
+            print(f"[!] Lỗi khi khởi tạo AntiSpoofPredictor: {e}")
+            self.anti_spoof_predictor = None
 
     def detect_face_boxes(self, frame: np.ndarray) -> List[Tuple[int, int, int, int]]:
         """
@@ -552,12 +588,36 @@ class FaceService:
                     name = self.known_names[best_match_index]
                     is_match = True
 
+            # Bước 4: Kiểm tra chống giả mạo khuôn mặt (MiniFASNet Liveness Detection)
+            is_real = True
+            liveness_score = 100.0
+            liveness_status = "REAL"
+            spoof_type = "real"
+
+            if ANTI_SPOOF_ENABLED and self.anti_spoof_predictor is not None and self.anti_spoof_predictor.is_ready():
+                try:
+                    spoof_res = self.anti_spoof_predictor.predict(
+                        frame,
+                        (top, right, bottom, left),
+                        bbox_format="top_right_bottom_left"
+                    )
+                    is_real = spoof_res.get("is_real", True)
+                    liveness_score = spoof_res.get("liveness_score", 100.0)
+                    liveness_status = spoof_res.get("liveness_status", "REAL")
+                    spoof_type = spoof_res.get("spoof_type", "real")
+                except Exception as e:
+                    print(f"[!] Lỗi khi chạy Anti-Spoofing: {e}")
+
             results.append({
                 "name": name,
                 "confidence": confidence,
                 "is_match": is_match,
                 "distance": round(min_distance, 3),
-                "box": (top, right, bottom, left)
+                "box": (top, right, bottom, left),
+                "is_real": is_real,
+                "liveness_score": liveness_score,
+                "liveness_status": liveness_status,
+                "spoof_type": spoof_type,
             })
 
         return results

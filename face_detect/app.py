@@ -483,14 +483,17 @@ class FaceApp:
 
                 display_frame = frame.copy()
 
-                # Tìm xem có khuôn mặt nào đạt >= 90% không
+                # Tìm xem có khuôn mặt nào đạt >= 90% VÀ ĐÃ XÁC THỰC LÀ NGƯỜI THẬT (is_real == True)
                 qualified_face = None
+                has_spoof_face = False
                 for res in current_results:
-                    if res["is_match"] and res["confidence"] >= CHECKIN_CONFIDENCE_THRESHOLD:
+                    if not res.get("is_real", True):
+                        has_spoof_face = True
+                    elif res["is_match"] and res["confidence"] >= CHECKIN_CONFIDENCE_THRESHOLD:
                         qualified_face = res
                         break
 
-                # Cập nhật chuỗi giữ liên tục 5 giây
+                # Cập nhật chuỗi giữ liên tục 5 giây (Bị reset ngay lập tức nếu là ảnh giả)
                 hold_elapsed = 0.0
                 if qualified_face is not None:
                     target_name = qualified_face["name"]
@@ -505,33 +508,42 @@ class FaceApp:
 
                     streak_last_confidence = target_conf
                 else:
-                    # Bị ngắt quãng hoặc < 90% -> reset lại chuỗi
+                    # Bị ngắt quãng, < 90% hoặc phát hiện giả mạo -> reset lại chuỗi
                     streak_user = None
                     streak_start_time = None
                     streak_last_confidence = 0.0
                     hold_elapsed = 0.0
 
-                # Vẽ bounding box và nhãn tên cho mọi khuôn mặt
+                # Vẽ bounding box và nhãn trạng thái Anti-Spoofing cho mọi khuôn mặt
                 for res in current_results:
                     top, right, bottom, left = res["box"]
                     name = res["name"]
                     confidence = res["confidence"]
                     is_match = res["is_match"]
+                    is_real = res.get("is_real", True)
+                    liveness = res.get("liveness_score", 100.0)
+                    spoof_type = res.get("spoof_type", "real")
 
-                    if is_match:
-                        # Nếu đang trong chuỗi >= 90% thì viền sáng hơn
+                    if not is_real:
+                        # CẢNH BÁO GIẢ MẠO: Màu đỏ rực rỡ
+                        box_color = (0, 0, 255)
+                        type_str = "ANH IN" if spoof_type == "print_attack" else "MAN HINH"
+                        label = f"[!] GIA MAO ({type_str}) - {liveness:.0f}% LIVE"
+                    elif is_match:
+                        # Người thật đã đăng ký: Màu xanh lá công nghệ
                         if name == streak_user and confidence >= CHECKIN_CONFIDENCE_THRESHOLD:
                             box_color = (0, 255, 100)
                         else:
                             box_color = (0, 220, 0)
-                        label = f"{name} ({confidence:.1f}%)"
+                        label = f"{name} ({confidence:.1f}% | LIVE: {liveness:.0f}%)"
                     else:
-                        box_color = (0, 80, 255)
-                        label = f"Unknown ({confidence:.1f}%)"
+                        # Người thật nhưng chưa đăng ký: Màu vàng cam
+                        box_color = (0, 180, 255)
+                        label = f"Unknown ({confidence:.1f}% | LIVE: {liveness:.0f}%)"
 
                     draw_corner_rect(display_frame, (top, right, bottom, left), box_color, thickness=2)
 
-                    label_w = max(130, len(label) * 11)
+                    label_w = max(140, len(label) * 11)
                     label_h = 28
                     label_top = max(0, top - label_h - 4)
 
@@ -548,7 +560,7 @@ class FaceApp:
                         label,
                         (left + 6, label_top + 20),
                         cv2.FONT_HERSHEY_DUPLEX,
-                        0.55,
+                        0.52,
                         (255, 255, 255),
                         1,
                         cv2.LINE_AA
@@ -558,7 +570,7 @@ class FaceApp:
                 if streak_user is not None and hold_elapsed > 0:
                     draw_checkin_hold_bar(display_frame, streak_user, hold_elapsed, CHECKIN_HOLD_SECONDS, streak_last_confidence)
 
-                # Kiểm tra điều kiện: ĐÃ ĐẠT ĐỦ 5 GIÂY LIÊN TỤC TRÊN 90%
+                # Kiểm tra điều kiện: ĐÃ ĐẠT ĐỦ 5 GIÂY LIÊN TỤC TRÊN 90% VÀ LÀ NGƯỜI THẬT
                 if streak_user is not None and hold_elapsed >= CHECKIN_HOLD_SECONDS:
                     # 1. NGAY LẬP TỨC GIẢI PHÓNG CAMERA ĐỂ DỪNG QUAY
                     cap.release()
@@ -579,7 +591,7 @@ class FaceApp:
                     print("\n" + "*" * 60)
                     print(f"[+] >>> CHẤM CÔNG THÀNH CÔNG: {streak_user} <<<")
                     print(f"[*] Thời gian: {now_str}")
-                    print(f"[*] Độ chính xác: {streak_last_confidence:.1f}%")
+                    print(f"[*] Độ chính xác: {streak_last_confidence:.1f}% (Xác thực Liveness Người Thật)")
                     print("[*] Màn hình cv2 đang được giữ nguyên tại thời điểm chấm công.")
                     print("[*] Vui lòng nhấn phím bất kỳ trên bàn phím để quay về Menu...")
                     print("*" * 60)
@@ -593,11 +605,15 @@ class FaceApp:
                     return
 
                 # Vẽ HUD trên cùng
+                hud_sub = f"FPS: {fps:.1f} | Giu >=90% & LIVE 5s de cham cong | 'Q': Thoat"
+                if has_spoof_face:
+                    hud_sub = "CANH BAO: Phat hien khuon mat gia mao (Spoof Attack)!"
                 draw_top_hud(
                     display_frame,
-                    "HE THONG NHAN DIEN (YOLO + Face Recognition)",
-                    f"FPS: {fps:.1f} | Giu >=90% trong 5s de cham cong | 'Q': Thoat"
+                    "HE THONG NHAN DIEN (YOLOv11 + MiniFASNet Liveness)",
+                    hud_sub
                 )
+
 
                 cv2.imshow(window_name, display_frame)
 

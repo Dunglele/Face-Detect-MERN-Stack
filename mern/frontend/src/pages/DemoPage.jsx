@@ -214,6 +214,10 @@ export default function DemoPage() {
         setDetectionResult({
           name: topFace.name,
           confidence: topFace.confidence,
+          isReal: topFace.is_real !== undefined ? topFace.is_real : true,
+          livenessScore: topFace.liveness_score !== undefined ? topFace.liveness_score : 100,
+          livenessStatus: topFace.liveness_status || 'REAL',
+          spoofType: topFace.spoof_type || 'real',
           faceBox: {
             top: `${topFace.relative_bbox.top}%`,
             left: `${displayLeft}%`,
@@ -275,6 +279,10 @@ export default function DemoPage() {
             setDetectionResult({
               name: topFace.name,
               confidence: topFace.confidence,
+              isReal: topFace.is_real !== undefined ? topFace.is_real : true,
+              livenessScore: topFace.liveness_score !== undefined ? topFace.liveness_score : 100,
+              livenessStatus: topFace.liveness_status || 'REAL',
+              spoofType: topFace.spoof_type || 'real',
               faceBox: {
                 top: `${topFace.relative_bbox.top}%`,
                 left: `${topFace.relative_bbox.left}%`,
@@ -401,6 +409,10 @@ export default function DemoPage() {
 
   const handleRecordAttendance = async () => {
     if (!detectionResult) return;
+    if (detectionResult.isReal === false) {
+      setNoticeMessage('⚠️ Cảnh báo: Hệ thống Anti-Spoofing MiniFASNet đã phát hiện khuôn mặt giả mạo! Không thể ghi nhận điểm danh.');
+      return;
+    }
     setSubmittingLog(true);
     setSaveSuccess('');
 
@@ -734,10 +746,16 @@ export default function DemoPage() {
                     left: detectionResult.faceBox.left,
                     width: detectionResult.faceBox.width,
                     height: detectionResult.faceBox.height,
-                    borderColor: detectionResult.isMatch ? '#108a55' : '#b45309',
-                    boxShadow: detectionResult.isMatch 
-                      ? '0 0 0 2px rgba(16, 138, 85, 0.3), inset 0 0 12px rgba(16, 138, 85, 0.2)' 
-                      : '0 0 0 2px rgba(180, 83, 9, 0.3), inset 0 0 12px rgba(180, 83, 9, 0.2)',
+                    borderColor: !detectionResult.isReal 
+                      ? '#dc2626' 
+                      : detectionResult.isMatch 
+                        ? '#108a55' 
+                        : '#b45309',
+                    boxShadow: !detectionResult.isReal
+                      ? '0 0 0 2px rgba(220, 38, 38, 0.4), inset 0 0 12px rgba(220, 38, 38, 0.3)'
+                      : detectionResult.isMatch 
+                        ? '0 0 0 2px rgba(16, 138, 85, 0.3), inset 0 0 12px rgba(16, 138, 85, 0.2)' 
+                        : '0 0 0 2px rgba(180, 83, 9, 0.3), inset 0 0 12px rgba(180, 83, 9, 0.2)',
                   }}
                 >
                   <div
@@ -745,7 +763,11 @@ export default function DemoPage() {
                       position: 'absolute',
                       top: '-32px',
                       left: 0,
-                      backgroundColor: detectionResult.isMatch ? '#108a55' : '#b45309',
+                      backgroundColor: !detectionResult.isReal 
+                        ? '#dc2626' 
+                        : detectionResult.isMatch 
+                          ? '#108a55' 
+                          : '#b45309',
                       color: '#ffffff',
                       fontSize: '0.75rem',
                       fontWeight: 700,
@@ -759,8 +781,17 @@ export default function DemoPage() {
                       boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
                     }}
                   >
-                    <CheckCircle2 size={12} color="#ffffff" />
-                    {detectionResult.name} ({detectionResult.confidence}%)
+                    {!detectionResult.isReal ? (
+                      <>
+                        <AlertTriangle size={12} color="#ffffff" />
+                        [!] GIẢ MẠO: {detectionResult.spoofType === 'print_attack' ? 'ẢNH IN' : 'MÀN HÌNH'} ({detectionResult.livenessScore}% Live)
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 size={12} color="#ffffff" />
+                        {detectionResult.name} ({detectionResult.confidence}%) &bull; LIVE: {detectionResult.livenessScore}%
+                      </>
+                    )}
                   </div>
                 </div>
               )}
@@ -934,15 +965,56 @@ export default function DemoPage() {
                     </div>
                   </div>
 
+                  {/* Anti-Spoofing MiniFASNet Badge */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      backgroundColor: detectionResult.isReal ? 'rgba(16, 138, 85, 0.08)' : 'rgba(220, 38, 38, 0.08)',
+                      border: `1px solid ${detectionResult.isReal ? 'rgba(16, 138, 85, 0.25)' : 'rgba(220, 38, 38, 0.25)'}`,
+                      borderRadius: '14px',
+                      padding: '12px 16px',
+                      marginBottom: '20px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <ShieldCheck size={20} color={detectionResult.isReal ? '#108a55' : '#dc2626'} />
+                      <div>
+                        <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: detectionResult.isReal ? '#108a55' : '#dc2626' }}>
+                          {detectionResult.isReal ? 'Xác thực Người thật (Live Face)' : 'Cảnh báo Giả mạo (Spoof Attack)'}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          {detectionResult.isReal ? 'MiniFASNet xác nhận sinh trắc học sống' : `Phát hiện dạng: ${detectionResult.spoofType === 'print_attack' ? 'Ảnh in giấy' : 'Màn hình chiếu lại'}`}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '1.05rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: detectionResult.isReal ? '#108a55' : '#dc2626' }}>
+                        {detectionResult.livenessScore}%
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>Liveness Score</div>
+                    </div>
+                  </div>
+
                   {/* Primary Button to sync with MongoDB */}
                   <button
                     className="btn-primary"
                     onClick={handleRecordAttendance}
-                    disabled={submittingLog}
-                    style={{ width: '100%', padding: '14px' }}
+                    disabled={submittingLog || detectionResult.isReal === false}
+                    style={{
+                      width: '100%',
+                      padding: '14px',
+                      backgroundColor: detectionResult.isReal === false ? '#9295a3' : undefined,
+                      cursor: detectionResult.isReal === false ? 'not-allowed' : 'pointer'
+                    }}
                   >
                     <UserCheck size={18} />
-                    {submittingLog ? 'Đang lưu vào MongoDB...' : 'Ghi nhận điểm danh vào CSDL'}
+                    {submittingLog
+                      ? 'Đang lưu vào MongoDB...'
+                      : detectionResult.isReal === false
+                        ? 'Chặn điểm danh: Phát hiện giả mạo'
+                        : 'Ghi nhận điểm danh vào CSDL'}
                   </button>
 
                   {saveSuccess && (
