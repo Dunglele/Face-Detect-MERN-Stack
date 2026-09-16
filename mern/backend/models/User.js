@@ -41,7 +41,9 @@ const userSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    strict: false, // Cho phép đọc/ghi mọi cấu trúc document trong collection test/user
   }
 );
 
-export const User = mongoose.model('User', userSchema);
+// Ràng buộc tường minh collection 'user' trong database 'test'
+export const User = mongoose.model('User', userSchema, 'user');

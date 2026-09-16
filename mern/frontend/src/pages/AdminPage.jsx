@@ -38,87 +38,26 @@ export default function AdminPage() {
 
   // Stats
   const [stats, setStats] = useState({
-    totalUsers: 14,
-    enrolledUsers: 11,
-    todayCheckIns: 9,
+    totalUsers: 0,
+    enrolledUsers: 0,
+    todayCheckIns: 0,
     modelAccuracy: '99.2%',
   });
 
-  // Users state
-  const [users, setUsers] = useState([
-    {
-      _id: 'usr-1',
-      name: 'Nguyễn Tiến Dũng',
-      employeeId: 'EMP-001',
-      department: 'AI & Engineering',
-      isFaceEnrolled: true,
-      faceSampleCount: 20,
-      createdAt: '2026-03-01T08:00:00.000Z',
-    },
-    {
-      _id: 'usr-2',
-      name: 'Ngọc Khánh',
-      employeeId: 'EMP-002',
-      department: 'Product Design',
-      isFaceEnrolled: true,
-      faceSampleCount: 20,
-      createdAt: '2026-03-02T09:15:00.000Z',
-    },
-    {
-      _id: 'usr-3',
-      name: 'Trần Minh Hoàng',
-      employeeId: 'EMP-003',
-      department: 'Human Resources',
-      isFaceEnrolled: true,
-      faceSampleCount: 20,
-      createdAt: '2026-03-05T10:30:00.000Z',
-    },
-    {
-      _id: 'usr-4',
-      name: 'Lê Thùy Trang',
-      employeeId: 'EMP-004',
-      department: 'Marketing & Sales',
-      isFaceEnrolled: false,
-      faceSampleCount: 0,
-      createdAt: '2026-03-08T14:20:00.000Z',
-    },
-  ]);
+  // Thông tin metadata cơ sở dữ liệu MongoDB Atlas (test/user)
+  const [dbMeta, setDbMeta] = useState({
+    database: 'test',
+    collection: 'user',
+    source: 'Đang kết nối...',
+    mongoConnected: false,
+  });
+  const [usersLoaded, setUsersLoaded] = useState(false);
 
-  // Logs state
-  const [logs, setLogs] = useState([
-    {
-      _id: 'log-101',
-      userName: 'Nguyễn Tiến Dũng',
-      timestamp: new Date(Date.now() - 1000 * 60 * 18).toISOString(),
-      confidence: 96.8,
-      status: 'Present',
-      checkInType: 'Check-in',
-    },
-    {
-      _id: 'log-102',
-      userName: 'Ngọc Khánh',
-      timestamp: new Date(Date.now() - 1000 * 60 * 42).toISOString(),
-      confidence: 94.5,
-      status: 'Present',
-      checkInType: 'Check-in',
-    },
-    {
-      _id: 'log-103',
-      userName: 'Trần Minh Hoàng',
-      timestamp: new Date(Date.now() - 1000 * 60 * 85).toISOString(),
-      confidence: 91.2,
-      status: 'Present',
-      checkInType: 'Check-in',
-    },
-    {
-      _id: 'log-104',
-      userName: 'Unknown Face',
-      timestamp: new Date(Date.now() - 1000 * 60 * 135).toISOString(),
-      confidence: 42.1,
-      status: 'Unrecognized',
-      checkInType: 'Check-in',
-    },
-  ]);
+  // Users state: bắt đầu bằng mảng rỗng để truy vấn trực tiếp từ MongoDB test.user
+  const [users, setUsers] = useState([]);
+
+  // Logs state: nhật ký điểm danh thực tế
+  const [logs, setLogs] = useState([]);
 
   const checkBackend = async () => {
     setLoading(true);
@@ -145,13 +84,20 @@ export default function AdminPage() {
         fetch(`${API_BASE}/attendance`).then((r) => r.json()).catch(() => null),
       ]);
 
-      if (statsRes && statsRes.success) {
+      if (statsRes && statsRes.success && statsRes.data) {
         setStats((prev) => ({ ...prev, ...statsRes.data }));
       }
-      if (usersRes && usersRes.success && usersRes.data.length > 0) {
-        setUsers(usersRes.data);
+      if (usersRes && usersRes.success) {
+        setUsers(usersRes.data || []);
+        setUsersLoaded(true);
+        setDbMeta({
+          database: usersRes.database || 'test',
+          collection: usersRes.collection || 'user',
+          source: usersRes.source || 'MongoDB Atlas (test.user)',
+          mongoConnected: Boolean(usersRes.mongoConnected),
+        });
       }
-      if (logsRes && logsRes.success && logsRes.data.length > 0) {
+      if (logsRes && logsRes.success && Array.isArray(logsRes.data)) {
         setLogs(logsRes.data);
       }
     } catch (err) {
@@ -384,10 +330,10 @@ export default function AdminPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Cơ sở dữ liệu
+                Cơ sở dữ liệu Atlas
               </p>
               <div style={{ fontSize: '1.25rem', fontWeight: 700, marginTop: '8px', letterSpacing: '-0.02em', fontFamily: 'var(--font-mono)' }}>
-                face_detect_db
+                {dbMeta.database} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>/</span> {dbMeta.collection}
               </div>
             </div>
             <div style={{ backgroundColor: 'var(--bg-muted)', padding: '10px', borderRadius: '12px', color: 'var(--text-secondary)' }}>
@@ -395,7 +341,9 @@ export default function AdminPage() {
             </div>
           </div>
           <div style={{ marginTop: '12px', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
-            API: <span style={{ fontWeight: 600, color: backendOnline ? '#108a55' : '#b45309' }}>{backendOnline ? 'Port 5000 Connected' : 'Mô phỏng (Offline)'}</span>
+            Nguồn: <span style={{ fontWeight: 600, color: dbMeta.mongoConnected ? '#108a55' : '#b45309' }}>
+              {dbMeta.source || (backendOnline ? 'Đang truy vấn...' : 'Ngoại tuyến')}
+            </span>
           </div>
         </div>
 
@@ -418,6 +366,51 @@ export default function AdminPage() {
           </div>
         </div>
       </div>
+
+      {/* Atlas Connection Guidance Banner */}
+      {!dbMeta.mongoConnected && backendOnline && (
+        <div
+          style={{
+            marginBottom: '28px',
+            padding: '14px 20px',
+            backgroundColor: '#fffbeb',
+            border: '1px solid #fef3c7',
+            borderRadius: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            fontSize: '0.875rem',
+            color: '#92400e',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Database size={18} color="#d97706" style={{ flexShrink: 0 }} />
+            <span>
+              <strong>Lưu ý kết nối MongoDB Atlas (test.user):</strong> IP mạng hiện tại chưa được cấp quyền (whitelist) trên MongoDB Atlas Network Access. Hệ thống đang tự động dùng bộ nhớ cache Python AI để hiển thị nhân viên thực tế. Để kết nối trực tiếp Atlas: Mở <em>cloud.mongodb.com &rarr; Network Access &rarr; Add IP Address &rarr; Allow Access From Anywhere (0.0.0.0/0)</em>.
+            </span>
+          </div>
+          <a
+            href="https://cloud.mongodb.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-outline"
+            style={{
+              flexShrink: 0,
+              padding: '6px 14px',
+              fontSize: '0.75rem',
+              borderRadius: '8px',
+              backgroundColor: '#ffffff',
+              borderColor: '#fde68a',
+              color: '#b45309',
+              textDecoration: 'none',
+              fontWeight: 600,
+            }}
+          >
+            Mở MongoDB Atlas
+          </a>
+        </div>
+      )}
 
       {/* Navigation Tabs */}
       <div
@@ -550,42 +543,54 @@ export default function AdminPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredLogs.map((log) => (
-                  <tr
-                    key={log._id}
-                    style={{
-                      borderBottom: '1px solid var(--border-subtle)',
-                      fontSize: '0.9375rem',
-                    }}
-                  >
-                    <td style={{ padding: '16px', fontWeight: 600 }}>
-                      {log.userName}
-                    </td>
-                    <td style={{ padding: '16px', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>
-                      {new Date(log.timestamp).toLocaleTimeString('vi-VN')} -{' '}
-                      {new Date(log.timestamp).toLocaleDateString('vi-VN')}
-                    </td>
-                    <td style={{ padding: '16px' }}>
-                      <span
-                        style={{
-                          fontWeight: 700,
-                          fontFamily: 'var(--font-mono)',
-                          color: log.confidence > 85 ? '#108a55' : '#b45309',
-                        }}
-                      >
-                        {log.confidence}%
-                      </span>
-                    </td>
-                    <td style={{ padding: '16px', color: 'var(--text-muted)' }}>
-                      {log.checkInType || 'Check-in'}
-                    </td>
-                    <td style={{ padding: '16px' }}>
-                      <span className={`badge-tag ${log.status === 'Present' ? 'active' : 'pending'}`}>
-                        {log.status === 'Present' ? 'Hợp lệ' : 'Không xác định'}
-                      </span>
+                {filteredLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} style={{ padding: '40px 16px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                      <Clock size={28} style={{ margin: '0 auto 8px', opacity: 0.4 }} />
+                      <p>Chưa có lượt điểm danh nào được ghi nhận hôm nay.</p>
+                      <Link to="/demo" style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.8125rem', marginTop: '6px', display: 'inline-block' }}>
+                        Mở Thử nghiệm Camera để quét mặt &rarr;
+                      </Link>
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  filteredLogs.map((log) => (
+                    <tr
+                      key={log._id}
+                      style={{
+                        borderBottom: '1px solid var(--border-subtle)',
+                        fontSize: '0.9375rem',
+                      }}
+                    >
+                      <td style={{ padding: '16px', fontWeight: 600 }}>
+                        {log.userName}
+                      </td>
+                      <td style={{ padding: '16px', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>
+                        {new Date(log.timestamp).toLocaleTimeString('vi-VN')} -{' '}
+                        {new Date(log.timestamp).toLocaleDateString('vi-VN')}
+                      </td>
+                      <td style={{ padding: '16px' }}>
+                        <span
+                          style={{
+                            fontWeight: 700,
+                            fontFamily: 'var(--font-mono)',
+                            color: log.confidence > 85 ? '#108a55' : '#b45309',
+                          }}
+                        >
+                          {log.confidence}%
+                        </span>
+                      </td>
+                      <td style={{ padding: '16px', color: 'var(--text-muted)' }}>
+                        {log.checkInType || 'Check-in'}
+                      </td>
+                      <td style={{ padding: '16px' }}>
+                        <span className={`badge-tag ${log.status === 'Present' ? 'active' : 'pending'}`}>
+                          {log.status === 'Present' ? 'Hợp lệ' : 'Không xác định'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -598,15 +603,25 @@ export default function AdminPage() {
           <div
             style={{
               display: 'flex',
+              flexWrap: 'wrap',
               justifyContent: 'space-between',
               alignItems: 'center',
+              gap: '12px',
               marginBottom: '24px',
             }}
           >
             <div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Hồ sơ nhân sự</h3>
-              <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                Quản lý trạng thái nạp 20 góc mặt của nhân viên
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Hồ sơ nhân sự</h3>
+                <span className="badge-tag neutral" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>
+                  MongoDB: {dbMeta.database}.{dbMeta.collection}
+                </span>
+                <span className={`badge-tag ${dbMeta.mongoConnected ? 'active' : 'pending'}`} style={{ fontSize: '0.72rem' }}>
+                  {dbMeta.source || (backendOnline ? 'Đang truy vấn' : 'Ngoại tuyến')}
+                </span>
+              </div>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                Truy vấn tài liệu nhân sự và các vector đặc trưng 128-d từ <code>{dbMeta.database}.{dbMeta.collection}</code>
               </p>
             </div>
 
@@ -644,108 +659,126 @@ export default function AdminPage() {
             </div>
           )}
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-              gap: '16px',
-            }}
-          >
-            {users.map((u) => (
-              <div
-                key={u._id}
-                style={{
-                  backgroundColor: 'var(--bg-neutral)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: '20px',
-                  padding: '20px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <h4 style={{ fontSize: '1.0625rem', fontWeight: 700 }}>
-                        {u.name}
-                      </h4>
-                      <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        {u.employeeId} &bull; {u.department}
-                      </p>
+          {!usersLoaded ? (
+            <div style={{ padding: '60px 24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+              <RefreshCw size={28} className="spin" style={{ margin: '0 auto 12px' }} />
+              <p style={{ fontSize: '0.9375rem' }}>Đang kết nối và truy vấn collection <strong>{dbMeta.database}.{dbMeta.collection}</strong>...</p>
+            </div>
+          ) : users.length === 0 ? (
+            <div style={{ padding: '60px 24px', textAlign: 'center', border: '1px dashed var(--border-subtle)', borderRadius: '20px' }}>
+              <Users size={40} color="var(--text-dim)" style={{ margin: '0 auto 14px' }} />
+              <h4 style={{ fontWeight: 700, fontSize: '1.125rem', marginBottom: '6px' }}>Chưa có tài liệu nhân sự trong collection "{dbMeta.collection}"</h4>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', maxWidth: '440px', margin: '0 auto 20px' }}>
+                Cơ sở dữ liệu đang sẵn sàng. Hãy bấm nút "Thêm nhân viên" để tạo tài liệu đầu tiên hoặc chuyển sang Thử nghiệm Camera để quét nhận diện.
+              </p>
+              <button className="btn-primary" onClick={() => setShowAddUserModal(true)} style={{ margin: '0 auto' }}>
+                <Plus size={16} /> Thêm nhân viên mới
+              </button>
+            </div>
+          ) : (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                gap: '16px',
+              }}
+            >
+              {users.map((u) => (
+                <div
+                  key={u._id}
+                  style={{
+                    backgroundColor: 'var(--bg-neutral)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: '20px',
+                    padding: '20px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <h4 style={{ fontSize: '1.0625rem', fontWeight: 700 }}>
+                          {u.name}
+                        </h4>
+                        <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                          {u.employeeId} &bull; {u.department}
+                        </p>
+                      </div>
+                      <span className={`badge-tag ${u.isFaceEnrolled ? 'active' : 'pending'}`}>
+                        {u.isFaceEnrolled ? 'Đã học mặt' : 'Chưa nạp'}
+                      </span>
                     </div>
-                    <span className={`badge-tag ${u.isFaceEnrolled ? 'active' : 'pending'}`}>
-                      {u.isFaceEnrolled ? 'Đã học mặt' : 'Chưa nạp'}
-                    </span>
+
+                    <div
+                      style={{
+                        marginTop: '16px',
+                        paddingTop: '12px',
+                        borderTop: '1px solid var(--border-subtle)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        fontSize: '0.8125rem',
+                        color: 'var(--text-muted)',
+                      }}
+                    >
+                      <span style={{ fontWeight: 600, color: u.isFaceEnrolled ? '#108a55' : 'var(--text-muted)' }}>
+                        {u.faceDescriptors?.length || u.faceSampleCount || (u.isFaceEnrolled ? 20 : 0)} vectors
+                      </span>
+                      <span style={{ fontFamily: 'var(--font-mono)' }}>ID: {u._id ? String(u._id).slice(-6) : 'N/A'}</span>
+                    </div>
                   </div>
 
-                  <div
-                    style={{
-                      marginTop: '16px',
-                      paddingTop: '12px',
-                      borderTop: '1px solid var(--border-subtle)',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      fontSize: '0.8125rem',
-                      color: 'var(--text-muted)',
-                    }}
-                  >
-                    <span style={{ fontWeight: 600, color: u.isFaceEnrolled ? '#108a55' : 'var(--text-muted)' }}>
-                      {u.faceDescriptors?.length || u.faceSampleCount || (u.isFaceEnrolled ? 20 : 0)} vectors MongoDB
-                    </span>
-                    <span style={{ fontFamily: 'var(--font-mono)' }}>ID: {u._id ? String(u._id).slice(-4) : 'N/A'}</span>
+                  {/* Card Actions: Enroll & Delete */}
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                    <Link
+                      to={`/demo?mode=enroll&name=${encodeURIComponent(u.name)}&empId=${encodeURIComponent(u.employeeId || '')}&dept=${encodeURIComponent(u.department || '')}`}
+                      className="btn-outline"
+                      style={{
+                        flex: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        padding: '8px 10px',
+                        fontSize: '0.75rem',
+                        borderRadius: '10px',
+                        textDecoration: 'none',
+                        backgroundColor: u.isFaceEnrolled ? '#ffffff' : '#f0fdf4',
+                        borderColor: u.isFaceEnrolled ? 'var(--border-subtle)' : '#bbf7d0',
+                        color: u.isFaceEnrolled ? 'var(--text-primary)' : '#15803d',
+                      }}
+                    >
+                      <Camera size={13} />
+                      {u.isFaceEnrolled ? 'Thêm góc mặt' : 'Đăng ký mặt'}
+                    </Link>
+
+                    <button
+                      onClick={() => setUserToDelete(u)}
+                      className="btn-outline"
+                      title={`Xóa nhân viên ${u.name}`}
+                      style={{
+                        padding: '8px 12px',
+                        fontSize: '0.75rem',
+                        borderRadius: '10px',
+                        color: '#dc2626',
+                        borderColor: '#fecaca',
+                        backgroundColor: '#fef2f2',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      <Trash2 size={13} />
+                    </button>
                   </div>
                 </div>
-
-                {/* Card Actions: Enroll & Delete */}
-                <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-                  <Link
-                    to={`/demo?mode=enroll&name=${encodeURIComponent(u.name)}&empId=${encodeURIComponent(u.employeeId || '')}&dept=${encodeURIComponent(u.department || '')}`}
-                    className="btn-outline"
-                    style={{
-                      flex: 1,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '6px',
-                      padding: '8px 10px',
-                      fontSize: '0.75rem',
-                      borderRadius: '10px',
-                      textDecoration: 'none',
-                      backgroundColor: u.isFaceEnrolled ? '#ffffff' : '#f0fdf4',
-                      borderColor: u.isFaceEnrolled ? 'var(--border-subtle)' : '#bbf7d0',
-                      color: u.isFaceEnrolled ? 'var(--text-primary)' : '#15803d',
-                    }}
-                  >
-                    <Camera size={13} />
-                    {u.isFaceEnrolled ? 'Thêm góc mặt' : 'Đăng ký mặt'}
-                  </Link>
-
-                  <button
-                    onClick={() => setUserToDelete(u)}
-                    className="btn-outline"
-                    title={`Xóa nhân viên ${u.name}`}
-                    style={{
-                      padding: '8px 12px',
-                      fontSize: '0.75rem',
-                      borderRadius: '10px',
-                      color: '#dc2626',
-                      borderColor: '#fecaca',
-                      backgroundColor: '#fef2f2',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      transition: 'all 0.2s ease',
-                    }}
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

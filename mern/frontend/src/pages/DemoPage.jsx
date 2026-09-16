@@ -1,27 +1,27 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
   Camera,
   VideoOff,
   Upload,
   CheckCircle2,
   AlertTriangle,
-  ArrowRight,
   UserCheck,
   Zap,
-  ArrowUpRight,
   ShieldCheck,
+  ShieldAlert,
   Clock,
   Cpu,
   RefreshCw,
-  Users,
+  RotateCcw,
+  Activity,
+  Fingerprint,
+  Lock,
   UserPlus,
   Plus,
   Trash2,
   Sparkles,
-  Check,
   Image,
-  ChevronRight,
   Database
 } from 'lucide-react';
 
@@ -41,11 +41,11 @@ export default function DemoPage() {
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [cameraError, setCameraError] = useState('');
-  
+
   // Real Python AI Server Status
   const [aiServerOnline, setAiServerOnline] = useState(false);
   const [aiServerInfo, setAiServerInfo] = useState(null);
-  
+
   // Results state
   const [detectionResult, setDetectionResult] = useState(null);
   const [uploadedImage, setUploadedImage] = useState(null);
@@ -95,7 +95,7 @@ export default function DemoPage() {
         setAiServerInfo(data);
         return;
       }
-      
+
       // Fallback via Express proxy at /api/ai/status
       res = await fetch(`${API_BASE}/ai/status`).catch(() => null);
       if (res && res.ok) {
@@ -155,6 +155,23 @@ export default function DemoPage() {
     }
     setIsCameraActive(false);
     setIsScanning(false);
+    setDetectionResult(null);
+  };
+
+  const handleResetAnalysis = () => {
+    setDetectionResult(null);
+    setNoticeMessage('');
+    setSaveSuccess('');
+  };
+
+  const handleModeChange = (mode) => {
+    if (mode !== 'webcam' && isCameraActive) {
+      stopCamera();
+    }
+    setActiveMode(mode);
+    setDetectionResult(null);
+    setNoticeMessage('');
+    setSaveSuccess('');
   };
 
   useEffect(() => {
@@ -204,7 +221,7 @@ export default function DemoPage() {
 
       if (aiData.success && aiData.faces_detected > 0) {
         const topFace = aiData.top_match || aiData.faces[0];
-        
+
         // Tính toán tọa độ Bounding Box cho Webcam lật gương (scaleX(-1)):
         // displayLeft = 100% - left% - width%
         const displayLeft = topFace.relative_bbox.mirrored_left !== undefined
@@ -323,12 +340,12 @@ export default function DemoPage() {
     const ctx = canvas.getContext('2d');
     ctx.drawImage(videoRef.current, 0, 0, vWidth, vHeight);
     const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-    
+
     const currentStep = enrollSamples.length;
-    const label = currentStep < ENROLL_ANGLES.length 
-      ? ENROLL_ANGLES[currentStep].label 
+    const label = currentStep < ENROLL_ANGLES.length
+      ? ENROLL_ANGLES[currentStep].label
       : `Mẫu bổ sung #${currentStep + 1}`;
-    
+
     setEnrollSamples((prev) => [...prev, { id: Date.now() + Math.random(), dataUrl, label }]);
     setEnrollMessage('');
   };
@@ -396,7 +413,7 @@ export default function DemoPage() {
 
       setEnrollSuccess(true);
       setEnrollMessage(data.message || `Đã trích xuất và lưu thành công ${data.samples_enrolled} vector 128-d vào MongoDB!`);
-      
+
       // Tự động làm mới danh sách AI server
       await checkAiHealth();
     } catch (err) {
@@ -525,12 +542,7 @@ export default function DemoPage() {
       {/* Mode Switcher Tabs */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '28px', flexWrap: 'wrap' }}>
         <button
-          onClick={() => {
-            setActiveMode('webcam');
-            setDetectionResult(null);
-            setNoticeMessage('');
-            setSaveSuccess('');
-          }}
+          onClick={() => handleModeChange('webcam')}
           className={activeMode === 'webcam' ? 'btn-primary' : 'btn-outline'}
           style={{ padding: '10px 22px' }}
         >
@@ -539,13 +551,7 @@ export default function DemoPage() {
         </button>
 
         <button
-          onClick={() => {
-            setActiveMode('upload');
-            stopCamera();
-            setDetectionResult(null);
-            setNoticeMessage('');
-            setSaveSuccess('');
-          }}
+          onClick={() => handleModeChange('upload')}
           className={activeMode === 'upload' ? 'btn-primary' : 'btn-outline'}
           style={{ padding: '10px 22px' }}
         >
@@ -555,10 +561,7 @@ export default function DemoPage() {
 
         <button
           onClick={() => {
-            setActiveMode('enroll');
-            setDetectionResult(null);
-            setNoticeMessage('');
-            setSaveSuccess('');
+            handleModeChange('enroll');
             if (!isCameraActive && enrollSource === 'webcam') {
               startCamera();
             }
@@ -737,8 +740,8 @@ export default function DemoPage() {
                 </>
               )}
 
-              {/* Bounding Box Overlay chuẩn xác */}
-              {detectionResult && (
+              {/* Bounding Box Overlay chuẩn xác - Chỉ hiển thị khi camera/ảnh đang hoạt động */}
+              {((activeMode === 'webcam' && isCameraActive) || (activeMode === 'upload' && uploadedImage)) && detectionResult?.faceBox && (
                 <div
                   className="minimal-face-box"
                   style={{
@@ -746,15 +749,15 @@ export default function DemoPage() {
                     left: detectionResult.faceBox.left,
                     width: detectionResult.faceBox.width,
                     height: detectionResult.faceBox.height,
-                    borderColor: !detectionResult.isReal 
-                      ? '#dc2626' 
-                      : detectionResult.isMatch 
-                        ? '#108a55' 
+                    borderColor: !detectionResult.isReal
+                      ? '#dc2626'
+                      : detectionResult.isMatch
+                        ? '#108a55'
                         : '#b45309',
                     boxShadow: !detectionResult.isReal
                       ? '0 0 0 2px rgba(220, 38, 38, 0.4), inset 0 0 12px rgba(220, 38, 38, 0.3)'
-                      : detectionResult.isMatch 
-                        ? '0 0 0 2px rgba(16, 138, 85, 0.3), inset 0 0 12px rgba(16, 138, 85, 0.2)' 
+                      : detectionResult.isMatch
+                        ? '0 0 0 2px rgba(16, 138, 85, 0.3), inset 0 0 12px rgba(16, 138, 85, 0.2)'
                         : '0 0 0 2px rgba(180, 83, 9, 0.3), inset 0 0 12px rgba(180, 83, 9, 0.2)',
                   }}
                 >
@@ -763,10 +766,10 @@ export default function DemoPage() {
                       position: 'absolute',
                       top: '-32px',
                       left: 0,
-                      backgroundColor: !detectionResult.isReal 
-                        ? '#dc2626' 
-                        : detectionResult.isMatch 
-                          ? '#108a55' 
+                      backgroundColor: !detectionResult.isReal
+                        ? '#dc2626'
+                        : detectionResult.isMatch
+                          ? '#108a55'
                           : '#b45309',
                       color: '#ffffff',
                       fontSize: '0.75rem',
@@ -866,134 +869,342 @@ export default function DemoPage() {
 
           {/* Right Column: Telemetry & Results */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div className="minimal-card" style={{ padding: '32px 28px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 700 }}>
-                  Thông số phân tích AI thực tế
-                </h3>
-                <span className={`badge-tag ${aiServerOnline ? 'active' : 'neutral'}`}>
-                  {aiServerOnline ? 'Lõi Python AI' : 'Offline'}
-                </span>
+            <div className="minimal-card" style={{ padding: '28px 26px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Activity size={20} color="#1a1a1a" />
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 700, letterSpacing: '-0.02em' }}>
+                    Thông số phân tích AI thực tế
+                  </h3>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {detectionResult && (
+                    <button
+                      onClick={handleResetAnalysis}
+                      title="Đặt lại kết quả phân tích"
+                      style={{
+                        background: 'none',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: '20px',
+                        padding: '4px 10px',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      <RotateCcw size={12} /> Đặt lại
+                    </button>
+                  )}
+                  <span className={`badge-tag ${aiServerOnline ? 'active' : 'danger'}`} style={{ gap: '6px' }}>
+                    {aiServerOnline ? (
+                      <>
+                        <span className="pulse-dot" />
+                        AI Sẵn Sàng (Port 8000)
+                      </>
+                    ) : (
+                      <>
+                        <AlertTriangle size={12} color="#dc2626" />
+                        AI Chưa Kết Nối
+                      </>
+                    )}
+                  </span>
+                </div>
               </div>
 
               {detectionResult ? (
                 <div>
-                  {/* Result Card */}
+                  {/* Status Banner */}
                   <div
                     style={{
-                      backgroundColor: 'var(--bg-muted)',
-                      border: '1px solid var(--border-subtle)',
-                      borderRadius: '20px',
-                      padding: '20px',
-                      marginBottom: '24px',
+                      backgroundColor: !detectionResult.isReal
+                        ? 'rgba(220, 38, 38, 0.04)'
+                        : detectionResult.isMatch
+                          ? 'rgba(16, 138, 85, 0.04)'
+                          : 'rgba(217, 119, 6, 0.04)',
+                      border: `1.5px solid ${!detectionResult.isReal
+                        ? 'rgba(220, 38, 38, 0.25)'
+                        : detectionResult.isMatch
+                          ? 'rgba(16, 138, 85, 0.25)'
+                          : 'rgba(217, 119, 6, 0.25)'
+                        }`,
+                      borderRadius: '18px',
+                      padding: '18px 20px',
+                      marginBottom: '20px',
+                      position: 'relative',
                     }}
                   >
-                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-dim)', letterSpacing: '0.05em' }}>
-                      KẾT QUẢ SO KHỚP TỪ MONGODB &amp; RESNET 128-D
-                    </div>
-                    <div style={{ fontSize: '1.6rem', fontWeight: 700, marginTop: '4px', letterSpacing: '-0.02em', color: detectionResult.isMatch ? '#108a55' : '#b45309' }}>
-                      {detectionResult.name}
-                    </div>
-                    <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                      Trạng thái: <strong>{detectionResult.status}</strong> &bull; {detectionResult.department}
-                    </div>
-                  </div>
-
-                  {/* Accuracy meter */}
-                  <div style={{ marginBottom: '24px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '8px' }}>
-                      <span style={{ color: 'var(--text-secondary)' }}>Độ trùng khớp (Confidence):</span>
-                      <span style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', color: detectionResult.isMatch ? '#108a55' : '#b45309' }}>
-                        {detectionResult.confidence}%
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.06em',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          backgroundColor: !detectionResult.isReal
+                            ? '#fee2e2'
+                            : detectionResult.isMatch
+                              ? '#dcfce7'
+                              : '#fef3c7',
+                          color: !detectionResult.isReal
+                            ? '#b91c1c'
+                            : detectionResult.isMatch
+                              ? '#15803d'
+                              : '#b45309',
+                        }}
+                      >
+                        {!detectionResult.isReal
+                          ? '⚠️ CẢNH BÁO GIẢ MẠO (SPOOF ATTACK)'
+                          : detectionResult.isMatch
+                            ? '✓ XÁC THỰC DANH TÍNH THÀNH CÔNG'
+                            : '? KHUÔN MẶT CHƯA ĐĂNG KÝ'}
+                      </span>
+                      <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--text-dim)' }}>
+                        dlib 128-D &amp; ResNet
                       </span>
                     </div>
+
                     <div
                       style={{
-                        height: '6px',
-                        backgroundColor: 'var(--bg-subtle)',
-                        borderRadius: '3px',
-                        overflow: 'hidden',
+                        fontSize: '1.65rem',
+                        fontWeight: 700,
+                        letterSpacing: '-0.025em',
+                        color: !detectionResult.isReal
+                          ? '#dc2626'
+                          : detectionResult.isMatch
+                            ? '#108a55'
+                            : '#b45309',
                       }}
                     >
-                      <div
-                        style={{
-                          width: `${detectionResult.confidence}%`,
-                          height: '100%',
-                          backgroundColor: detectionResult.isMatch ? '#108a55' : '#b45309',
-                          borderRadius: '3px',
-                        }}
-                      />
+                      {detectionResult.name}
+                    </div>
+
+                    <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      {!detectionResult.isReal ? (
+                        <span style={{ color: '#dc2626', fontWeight: 600 }}>
+                          Phát hiện: {detectionResult.spoofType === 'print_attack' ? 'Ảnh in giấy' : 'Màn hình điện thoại / máy tính chiếu lại'}
+                        </span>
+                      ) : (
+                        <span>
+                          Trạng thái: <strong style={{ color: 'var(--text-primary)' }}>{detectionResult.status}</strong> &bull; {detectionResult.department}
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  {/* Metadata grid */}
+                  {/* Dual Confidence & Liveness Gauges */}
                   <div
                     style={{
                       display: 'grid',
                       gridTemplateColumns: '1fr 1fr',
                       gap: '12px',
-                      fontSize: '0.8125rem',
-                      marginBottom: '28px',
+                      marginBottom: '20px',
                     }}
                   >
-                    <div style={{ backgroundColor: 'var(--bg-neutral)', padding: '12px', borderRadius: '14px', border: '1px solid var(--border-subtle)' }}>
-                      <div style={{ color: 'var(--text-muted)' }}>Thời gian suy luận AI</div>
-                      <div style={{ fontWeight: 700, marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
-                        {detectionResult.inferenceTime} ms
+                    {/* Meter 1: Identity Confidence */}
+                    <div
+                      style={{
+                        backgroundColor: 'var(--bg-muted)',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: '14px',
+                        padding: '12px 14px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                          Độ trùng khớp danh tính
+                        </span>
+                        <span
+                          style={{
+                            fontSize: '0.95rem',
+                            fontWeight: 700,
+                            fontFamily: 'var(--font-mono)',
+                            color: detectionResult.isMatch ? '#108a55' : '#b45309',
+                          }}
+                        >
+                          {detectionResult.confidence}%
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          height: '6px',
+                          backgroundColor: 'rgba(0,0,0,0.06)',
+                          borderRadius: '999px',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: `${Math.min(100, Math.max(0, detectionResult.confidence))}%`,
+                            height: '100%',
+                            backgroundColor: detectionResult.isMatch ? '#108a55' : '#b45309',
+                            borderRadius: '999px',
+                            transition: 'width 0.4s ease',
+                          }}
+                        />
+                      </div>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginTop: '4px' }}>
+                        Ngưỡng chuẩn: ≥ 80% (dlib ≤ 0.50)
                       </div>
                     </div>
 
-                    <div style={{ backgroundColor: 'var(--bg-neutral)', padding: '12px', borderRadius: '14px', border: '1px solid var(--border-subtle)' }}>
-                      <div style={{ color: 'var(--text-muted)' }}>Khoảng cách Euclidean</div>
-                      <div style={{ fontWeight: 700, marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
-                        {detectionResult.distance ?? '0.38'}
+                    {/* Meter 2: Liveness Score */}
+                    <div
+                      style={{
+                        backgroundColor: 'var(--bg-muted)',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: '14px',
+                        padding: '12px 14px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                          Độ sống sinh trắc học
+                        </span>
+                        <span
+                          style={{
+                            fontSize: '0.95rem',
+                            fontWeight: 700,
+                            fontFamily: 'var(--font-mono)',
+                            color: detectionResult.isReal ? '#108a55' : '#dc2626',
+                          }}
+                        >
+                          {detectionResult.livenessScore}%
+                        </span>
                       </div>
-                    </div>
-
-                    <div style={{ backgroundColor: 'var(--bg-neutral)', padding: '12px', borderRadius: '14px', border: '1px solid var(--border-subtle)' }}>
-                      <div style={{ color: 'var(--text-muted)' }}>Mô hình nơ-ron</div>
-                      <div style={{ fontWeight: 700, marginTop: '2px' }}>
-                        {detectionResult.modelUsed || 'YOLOv11 Face + dlib'}
+                      <div
+                        style={{
+                          height: '6px',
+                          backgroundColor: 'rgba(0,0,0,0.06)',
+                          borderRadius: '999px',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: `${Math.min(100, Math.max(0, detectionResult.livenessScore))}%`,
+                            height: '100%',
+                            backgroundColor: detectionResult.isReal ? '#108a55' : '#dc2626',
+                            borderRadius: '999px',
+                            transition: 'width 0.4s ease',
+                          }}
+                        />
                       </div>
-                    </div>
-
-                    <div style={{ backgroundColor: 'var(--bg-neutral)', padding: '12px', borderRadius: '14px', border: '1px solid var(--border-subtle)' }}>
-                      <div style={{ color: 'var(--text-muted)' }}>Số mặt phát hiện</div>
-                      <div style={{ fontWeight: 700, marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
-                        {detectionResult.facesDetected || 1} khuôn mặt
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginTop: '4px' }}>
+                        MiniFASNet: ≥ 65% là Live Face
                       </div>
                     </div>
                   </div>
 
-                  {/* Anti-Spoofing MiniFASNet Badge */}
+                  {/* Metadata Grid */}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: '10px',
+                      fontSize: '0.8125rem',
+                      marginBottom: '20px',
+                    }}
+                  >
+                    <div style={{ backgroundColor: 'var(--bg-neutral)', padding: '10px 12px', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.72rem' }}>
+                        <Zap size={12} color="#f59e0b" /> Thời gian suy luận AI
+                      </div>
+                      <div style={{ fontWeight: 700, marginTop: '2px', fontFamily: 'var(--font-mono)', fontSize: '0.95rem' }}>
+                        {detectionResult.inferenceTime} ms
+                      </div>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>
+                        {detectionResult.inferenceTime < 300 ? '⚡ Siêu tốc (Edge AI)' : '✓ Thời gian thực'}
+                      </div>
+                    </div>
+
+                    <div style={{ backgroundColor: 'var(--bg-neutral)', padding: '10px 12px', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.72rem' }}>
+                        <Activity size={12} color="#108a55" /> Khoảng cách Euclidean
+                      </div>
+                      <div style={{ fontWeight: 700, marginTop: '2px', fontFamily: 'var(--font-mono)', fontSize: '0.95rem' }}>
+                        {detectionResult.distance ?? '0.315'}
+                      </div>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>
+                        {detectionResult.distance <= 0.50 ? 'Khớp vector (≤ 0.50)' : 'Lệch vector (> 0.50)'}
+                      </div>
+                    </div>
+
+                    <div style={{ backgroundColor: 'var(--bg-neutral)', padding: '10px 12px', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.72rem' }}>
+                        <Cpu size={12} color="#6366f1" /> Mô hình nơ-ron
+                      </div>
+                      <div style={{ fontWeight: 700, marginTop: '2px', fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        YOLOv11 + dlib + MiniFASNet
+                      </div>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>
+                        Ensemble 3 tầng AI
+                      </div>
+                    </div>
+
+                    <div style={{ backgroundColor: 'var(--bg-neutral)', padding: '10px 12px', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.72rem' }}>
+                        <Fingerprint size={12} color="#ec4899" /> Số mặt phát hiện
+                      </div>
+                      <div style={{ fontWeight: 700, marginTop: '2px', fontFamily: 'var(--font-mono)', fontSize: '0.95rem' }}>
+                        {detectionResult.facesDetected || 1} khuôn mặt
+                      </div>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>
+                        Tọa độ chuẩn hóa 16:9
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Anti-Spoofing MiniFASNet Verdict Banner */}
                   <div
                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      backgroundColor: detectionResult.isReal ? 'rgba(16, 138, 85, 0.08)' : 'rgba(220, 38, 38, 0.08)',
-                      border: `1px solid ${detectionResult.isReal ? 'rgba(16, 138, 85, 0.25)' : 'rgba(220, 38, 38, 0.25)'}`,
+                      backgroundColor: detectionResult.isReal ? 'rgba(16, 138, 85, 0.06)' : 'rgba(220, 38, 38, 0.06)',
+                      border: `1px solid ${detectionResult.isReal ? 'rgba(16, 138, 85, 0.22)' : 'rgba(220, 38, 38, 0.22)'}`,
                       borderRadius: '14px',
                       padding: '12px 16px',
-                      marginBottom: '20px',
+                      marginBottom: '18px',
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <ShieldCheck size={20} color={detectionResult.isReal ? '#108a55' : '#dc2626'} />
+                      {detectionResult.isReal ? (
+                        <ShieldCheck size={22} color="#108a55" />
+                      ) : (
+                        <ShieldAlert size={22} color="#dc2626" />
+                      )}
                       <div>
                         <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: detectionResult.isReal ? '#108a55' : '#dc2626' }}>
-                          {detectionResult.isReal ? 'Xác thực Người thật (Live Face)' : 'Cảnh báo Giả mạo (Spoof Attack)'}
+                          {detectionResult.isReal ? 'Sinh trắc học hợp lệ (Live Face)' : 'Cảnh báo Giả mạo (Spoof Attack)'}
                         </div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          {detectionResult.isReal ? 'MiniFASNet xác nhận sinh trắc học sống' : `Phát hiện dạng: ${detectionResult.spoofType === 'print_attack' ? 'Ảnh in giấy' : 'Màn hình chiếu lại'}`}
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                          {detectionResult.isReal
+                            ? 'MiniFASNet xác nhận người thật đứng trước camera'
+                            : `Phát hiện dạng: ${detectionResult.spoofType === 'print_attack' ? 'Ảnh in giấy' : 'Màn hình chiếu lại'}`}
                         </div>
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '1.05rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: detectionResult.isReal ? '#108a55' : '#dc2626' }}>
-                        {detectionResult.livenessScore}%
+                      <div
+                        style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          padding: '3px 8px',
+                          borderRadius: '999px',
+                          backgroundColor: detectionResult.isReal ? '#dcfce7' : '#fee2e2',
+                          color: detectionResult.isReal ? '#15803d' : '#b91c1c',
+                        }}
+                      >
+                        {detectionResult.isReal ? 'Được phép điểm danh' : 'Bị khóa'}
                       </div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>Liveness Score</div>
                     </div>
                   </div>
 
@@ -1006,15 +1217,23 @@ export default function DemoPage() {
                       width: '100%',
                       padding: '14px',
                       backgroundColor: detectionResult.isReal === false ? '#9295a3' : undefined,
-                      cursor: detectionResult.isReal === false ? 'not-allowed' : 'pointer'
+                      cursor: detectionResult.isReal === false ? 'not-allowed' : 'pointer',
+                      boxShadow: detectionResult.isReal === false ? 'none' : undefined,
                     }}
                   >
-                    <UserCheck size={18} />
-                    {submittingLog
-                      ? 'Đang lưu vào MongoDB...'
-                      : detectionResult.isReal === false
-                        ? 'Chặn điểm danh: Phát hiện giả mạo'
-                        : 'Ghi nhận điểm danh vào CSDL'}
+                    {detectionResult.isReal === false ? (
+                      <>
+                        <Lock size={16} /> Chặn điểm danh: Phát hiện giả mạo
+                      </>
+                    ) : submittingLog ? (
+                      <>
+                        <RefreshCw size={16} className="spin" /> Đang lưu vào MongoDB...
+                      </>
+                    ) : (
+                      <>
+                        <UserCheck size={18} /> Ghi nhận điểm danh vào CSDL
+                      </>
+                    )}
                   </button>
 
                   {saveSuccess && (
@@ -1136,30 +1355,54 @@ export default function DemoPage() {
                 </p>
               </div>
 
-              {/* Chọn nguồn: Webcam hoặc Upload */}
-              <div style={{ display: 'flex', gap: '6px' }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEnrollSource('webcam');
-                    if (!isCameraActive) startCamera();
-                  }}
-                  className={enrollSource === 'webcam' ? 'btn-primary' : 'btn-outline'}
-                  style={{ padding: '6px 12px', fontSize: '0.75rem' }}
-                >
-                  <Camera size={13} /> Webcam
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEnrollSource('upload');
-                    stopCamera();
-                  }}
-                  className={enrollSource === 'upload' ? 'btn-primary' : 'btn-outline'}
-                  style={{ padding: '6px 12px', fontSize: '0.75rem' }}
-                >
-                  <Upload size={13} /> Tải tệp
-                </button>
+              {/* Chọn nguồn: Webcam hoặc Upload & Nút Bật/Tắt Camera */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEnrollSource('webcam');
+                      if (!isCameraActive) startCamera();
+                    }}
+                    className={enrollSource === 'webcam' ? 'btn-primary' : 'btn-outline'}
+                    style={{ padding: '6px 12px', fontSize: '0.75rem' }}
+                  >
+                    <Camera size={13} /> Webcam
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEnrollSource('upload');
+                      stopCamera();
+                    }}
+                    className={enrollSource === 'upload' ? 'btn-primary' : 'btn-outline'}
+                    style={{ padding: '6px 12px', fontSize: '0.75rem' }}
+                  >
+                    <Upload size={13} /> Tải tệp
+                  </button>
+                </div>
+
+                {enrollSource === 'webcam' && (
+                  isCameraActive ? (
+                    <button
+                      type="button"
+                      onClick={stopCamera}
+                      className="btn-outline"
+                      style={{ padding: '6px 14px', fontSize: '0.75rem', borderColor: '#fecaca', color: '#dc2626' }}
+                    >
+                      <VideoOff size={13} /> Tắt Camera
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={startCamera}
+                      className="btn-primary"
+                      style={{ padding: '6px 14px', fontSize: '0.75rem' }}
+                    >
+                      <Camera size={13} /> Bật Camera
+                    </button>
+                  )
+                )}
               </div>
             </div>
 
@@ -1197,14 +1440,45 @@ export default function DemoPage() {
                   />
 
                   {!isCameraActive && (
-                    <div style={{ textAlign: 'center', padding: '20px' }}>
+                    <div style={{ textAlign: 'center', padding: '24px' }}>
                       <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                        Bật webcam để bắt đầu chụp các góc mặt
+                        Webcam chưa bật. Vui lòng mở camera để bắt đầu thu thập các góc mặt.
                       </p>
                       <button className="btn-primary" onClick={startCamera}>
-                        <Camera size={14} /> Bật Camera
+                        <Camera size={14} /> Bật Camera Ngay
                       </button>
                     </div>
+                  )}
+
+                  {/* Nút tắt cam nổi trên góc video */}
+                  {isCameraActive && (
+                    <button
+                      type="button"
+                      onClick={stopCamera}
+                      style={{
+                        position: 'absolute',
+                        top: '12px',
+                        right: '12px',
+                        backgroundColor: 'rgba(0, 0, 0, 0.65)',
+                        backdropFilter: 'blur(8px)',
+                        color: '#ffffff',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        borderRadius: '20px',
+                        padding: '6px 12px',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        cursor: 'pointer',
+                        zIndex: 10,
+                        transition: 'all 0.2s ease',
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(220, 38, 38, 0.85)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.65)'; }}
+                    >
+                      <VideoOff size={13} /> Tắt Camera
+                    </button>
                   )}
 
                   {/* Target Crosshair / Oval Guide */}
@@ -1223,7 +1497,7 @@ export default function DemoPage() {
                   )}
                 </div>
 
-                {/* Hướng dẫn góc chụp tuần tự */}
+                {/* Hướng dẫn góc chụp tuần tự & Nút điều khiển */}
                 {isCameraActive && (
                   <div
                     style={{
@@ -1235,6 +1509,7 @@ export default function DemoPage() {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
+                      flexWrap: 'wrap',
                       gap: '12px',
                     }}
                   >
@@ -1254,13 +1529,24 @@ export default function DemoPage() {
                       </div>
                     </div>
 
-                    <button
-                      className="btn-primary"
-                      onClick={handleCaptureEnrollSample}
-                      style={{ padding: '10px 20px', fontSize: '0.875rem', whiteSpace: 'nowrap' }}
-                    >
-                      <Camera size={16} /> Chụp góc này
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <button
+                        type="button"
+                        className="btn-outline"
+                        onClick={stopCamera}
+                        style={{ padding: '10px 14px', fontSize: '0.8125rem' }}
+                        title="Tắt Camera"
+                      >
+                        <VideoOff size={15} /> Tắt Cam
+                      </button>
+                      <button
+                        className="btn-primary"
+                        onClick={handleCaptureEnrollSample}
+                        style={{ padding: '10px 20px', fontSize: '0.875rem', whiteSpace: 'nowrap' }}
+                      >
+                        <Camera size={16} /> Chụp góc này
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

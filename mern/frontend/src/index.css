@@ -252,10 +252,41 @@ h1, h2, h3, h4, h5, h6 {
   border: 1px solid #fde68a;
 }
 
+.badge-tag.danger {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
 .badge-tag.neutral {
   background: var(--bg-muted);
   color: var(--text-secondary);
   border: 1px solid var(--border-subtle);
+}
+
+.pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #108a55;
+  display: inline-block;
+  box-shadow: 0 0 0 0 rgba(16, 138, 85, 0.7);
+  animation: pulseGreen 1.8s infinite;
+}
+
+@keyframes pulseGreen {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 138, 85, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 6px rgba(16, 138, 85, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 138, 85, 0);
+  }
 }
 
 /* Laser Scanner for Demo */

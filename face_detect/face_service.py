@@ -126,9 +126,18 @@ class FaceService:
             except Exception:
                 self.db = self.mongo_client["test"]
             self.db.command("ping")
-            self.users_collection = self.db["users"]
+            cols = self.db.list_collection_names()
+            if "user" in cols:
+                self.users_collection = self.db["user"]
+                coll_name = "user"
+            elif "users" in cols:
+                self.users_collection = self.db["users"]
+                coll_name = "users"
+            else:
+                self.users_collection = self.db["user"]
+                coll_name = "user"
             self.mongo_connected = True
-            print(f"[*] Ket noi MongoDB thanh cong den DB '{self.db.name}', collection 'users'")
+            print(f"[*] Ket noi MongoDB thanh cong den DB '{self.db.name}', collection '{coll_name}'")
         except Exception as e:
             self.mongo_connected = False
             self.mongo_client = None
