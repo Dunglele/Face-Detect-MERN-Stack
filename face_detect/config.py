@@ -48,7 +48,7 @@ CHECKIN_HOLD_SECONDS = 5.0          # Thời gian giữ liên tục (giây) đ�
 # Cấu hình Chống giả mạo khuôn mặt (Anti-Spoofing / Liveness Detection MiniFASNet)
 ANTI_SPOOF_DIR = MODELS_DIR / "anti_spoof"
 ANTI_SPOOF_ENABLED = True
-ANTI_SPOOF_THRESHOLD = 0.85  # Tỷ lệ % người thật tối thiểu (0.85 = 85%) để xác thực LIVE
+ANTI_SPOOF_THRESHOLD = 0.65  # Tỷ lệ % người thật tối thiểu (0.65 = 65%) để xác thực LIVE
 
 # Tự động tạo thư mục nếu chưa có
 DATA_DIR.mkdir(parents=True, exist_ok=True)

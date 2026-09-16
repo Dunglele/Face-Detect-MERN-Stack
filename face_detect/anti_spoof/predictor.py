@@ -55,7 +55,7 @@ class AntiSpoofPredictor:
         self,
         models_dir: Optional[Union[str, Path]] = None,
         device: Optional[str] = None,
-        threshold: float = 0.85,
+        threshold: float = 0.65,
         auto_download: bool = True
     ):
         if models_dir is None:
@@ -241,8 +241,11 @@ class AntiSpoofPredictor:
                     crop=True
                 )
 
-                # 2. Chuyển sang PyTorch Tensor BGR [0, 1]
-                tensor = torch.from_numpy(patch.transpose((2, 0, 1))).float().div(255.0)
+                # 2. Chuyển sang PyTorch Tensor BGR [0, 255]
+                # LƯU Ý QUAN TRỌNG: Mô hình MiniFASNet (Silent-Face-Anti-Spoofing) được huấn luyện
+                # trên dải giá trị pixel gốc [0, 255] (img.float(), KHÔNG chia 255).
+                # Nếu chia cho 255.0, tensor sẽ bị tối đen/sai lệch hoàn toàn và luôn bị nhận diện nhầm thành Replay Attack (1.5% Liveness)!
+                tensor = torch.from_numpy(np.ascontiguousarray(patch.transpose((2, 0, 1)))).float()
                 tensor = tensor.unsqueeze(0).to(self.device)
 
                 # 3. Suy luận Softmax
