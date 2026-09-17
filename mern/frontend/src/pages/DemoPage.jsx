@@ -25,8 +25,7 @@ import {
   Database
 } from 'lucide-react';
 
-const API_BASE = 'http://localhost:5000/api';
-const PYTHON_AI_BASE = 'http://localhost:8000';
+const API_BASE = '/api';
 
 const ENROLL_ANGLES = [
   { step: 1, label: 'Nhìn thẳng trực diện', hint: 'Giữ khuôn mặt ở trung tâm khung hình' },
@@ -84,20 +83,10 @@ export default function DemoPage() {
     }
   }, []);
 
-  // Check Python AI Service Health
+  // Check Python AI Service Health via backend proxy
   const checkAiHealth = async () => {
     try {
-      // First attempt direct Python server on port 8000
-      let res = await fetch(`${PYTHON_AI_BASE}/health`).catch(() => null);
-      if (res && res.ok) {
-        const data = await res.json();
-        setAiServerOnline(true);
-        setAiServerInfo(data);
-        return;
-      }
-
-      // Fallback via Express proxy at /api/ai/status
-      res = await fetch(`${API_BASE}/ai/status`).catch(() => null);
+      const res = await fetch(`${API_BASE}/ai/status`).catch(() => null);
       if (res && res.ok) {
         const proxyData = await res.json();
         if (proxyData.success && proxyData.ai_online) {
@@ -106,7 +95,6 @@ export default function DemoPage() {
           return;
         }
       }
-
       setAiServerOnline(false);
     } catch {
       setAiServerOnline(false);
@@ -123,10 +111,29 @@ export default function DemoPage() {
     setCameraError('');
     setNoticeMessage('');
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: false,
-      });
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('NOT_SUPPORTED_OR_INSECURE');
+      }
+
+      // Ưu tiên camera trước (facingMode: 'user') cho điện thoại và hỗ trợ fallback
+      let stream = null;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'user',
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+          audio: false,
+        });
+      } catch (constraintErr) {
+        // Fallback linh hoạt cho các thiết bị di động không hỗ trợ constraints độ phân giải
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false,
+        });
+      }
+
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -140,7 +147,19 @@ export default function DemoPage() {
       }, 1000);
     } catch (err) {
       console.error('Camera error:', err);
-      setCameraError('Không thể mở Camera. Vui lòng cấp quyền truy cập webcam trên trình duyệt của bạn.');
+      if (!window.isSecureContext || err.message === 'NOT_SUPPORTED_OR_INSECURE') {
+        setCameraError(
+          'Trình duyệt điện thoại yêu cầu kết nối HTTPS để mở Camera. Vui lòng mở bằng đường dẫn https://... (thay vì http://).'
+        );
+      } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setCameraError(
+          'Quyền truy cập Camera bị từ chối! Vui lòng vào Cài đặt trình duyệt trên điện thoại (hoặc bấm vào icon ổ khóa/cài đặt cạnh thanh địa chỉ) để Cho phép truy cập Camera.'
+        );
+      } else {
+        setCameraError(
+          `Không thể mở Camera (${err.message || err.name}). Nếu đang mở qua Zalo/Messenger, hãy bấm dấu 3 chấm và chọn "Mở bằng trình duyệt" (Safari/Chrome).`
+        );
+      }
       setIsCameraActive(false);
     }
   };
@@ -201,14 +220,13 @@ export default function DemoPage() {
       // Convert to JPEG Data URL
       const base64Image = canvas.toDataURL('image/jpeg', 0.85);
 
-      // Send to real Python AI Server
-      const targetUrl = aiServerOnline ? `${PYTHON_AI_BASE}/predict` : `${API_BASE}/ai/predict`;
+      // Send to real Python AI Server via Backend Proxy
+      const targetUrl = `${API_BASE}/ai/predict`;
       const res = await fetch(targetUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           image: base64Image,
-          tolerance: toleranceVal,
           auto_checkin: false
         })
       });
@@ -276,13 +294,12 @@ export default function DemoPage() {
         setSaveSuccess('');
 
         try {
-          const targetUrl = aiServerOnline ? `${PYTHON_AI_BASE}/predict` : `${API_BASE}/ai/predict`;
+          const targetUrl = `${API_BASE}/ai/predict`;
           const res = await fetch(targetUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               image: base64Data,
-              tolerance: toleranceVal,
               auto_checkin: false
             })
           });
@@ -391,7 +408,7 @@ export default function DemoPage() {
     setEnrollSuccess(false);
 
     try {
-      const targetUrl = aiServerOnline ? `${PYTHON_AI_BASE}/api/ai/register-face` : `${API_BASE}/ai/register-face`;
+      const targetUrl = `${API_BASE}/ai/register-face`;
       const payload = {
         name: enrollName.trim(),
         employeeId: enrollEmpId.trim() || `EMP-${String(Math.floor(Math.random() * 900) + 100)}`,

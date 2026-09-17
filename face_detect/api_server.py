@@ -14,9 +14,19 @@ from pydantic import BaseModel
 
 # Nạp thư viện từ face_service
 sys.path.append(str(Path(__file__).resolve().parent))
+import importlib
+import config
 from face_service import FaceService
 from config import TOLERANCE_THRESHOLD, FRAME_SCALE
 from app import log_attendance
+
+def get_current_tolerance() -> float:
+    """Đọc trực tiếp ngưỡng từ config.py (hỗ trợ hot-reload khi chỉnh config.py)"""
+    try:
+        importlib.reload(config)
+        return float(getattr(config, "TOLERANCE_THRESHOLD", 0.55))
+    except Exception:
+        return float(getattr(config, "TOLERANCE_THRESHOLD", 0.55))
 
 app = FastAPI(
     title="Face Detection & Recognition AI Service",
@@ -277,6 +287,7 @@ def _process_image_array(frame: np.ndarray, tolerance: float = TOLERANCE_THRESHO
         "top_match": top_match,
         "spoof_alert": spoof_alert,
         "anti_spoof_active": face_service.anti_spoof_predictor is not None and face_service.anti_spoof_predictor.is_ready(),
+        "tolerance_threshold": tolerance,
         "image_size": {"width": w, "height": h},
         "inference_time_ms": inference_ms,
         "model_used": "YOLOv11 Face + dlib ResNet + MiniFASNet" if face_service.yolo_model is not None else "dlib HOG + ResNet"
@@ -357,16 +368,18 @@ async def predict_base64(req: PredictBase64Request):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Lỗi giải mã Base64: {e}")
 
-    return _process_image_array(frame, req.tolerance or TOLERANCE_THRESHOLD, req.auto_checkin or False)
+    # Luôn ưu tiên cấu hình trong config.py
+    current_tolerance = get_current_tolerance()
+    return _process_image_array(frame, current_tolerance, req.auto_checkin or False)
 
 
 @app.post("/predict-binary")
-async def predict_binary(request: Request, tolerance: float = TOLERANCE_THRESHOLD, auto_checkin: bool = False):
+async def predict_binary(request: Request, auto_checkin: bool = False):
     """Nhận diện khuôn mặt từ raw binary bytes (không cần python-multipart)"""
     body = await request.body()
     nparr = np.frombuffer(body, np.uint8)
     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    return _process_image_array(frame, tolerance, auto_checkin)
+    return _process_image_array(frame, get_current_tolerance(), auto_checkin)
 
 
 if __name__ == "__main__":

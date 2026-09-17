@@ -8,7 +8,7 @@ export default function Navbar() {
   useEffect(() => {
     const checkApi = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/health');
+        const res = await fetch('/api/health');
         setBackendOnline(res.ok);
       } catch {
         setBackendOnline(false);

@@ -30,7 +30,7 @@ YOLO_CONFIDENCE = 0.50
 
 # Ngưỡng khoảng cách chuẩn của dlib Euclidean distance (thông thường 0.50 - 0.55)
 # Khoảng cách <= TOLERANCE_THRESHOLD được coi là trùng khớp danh tính
-TOLERANCE_THRESHOLD = 0.55
+TOLERANCE_THRESHOLD = 0.40
 
 # Tỉ lệ thu nhỏ frame khi nhận diện (0.5 = 1/2 kích thước: cân bằng tốc độ và độ nhạy)
 FRAME_SCALE = 0.5

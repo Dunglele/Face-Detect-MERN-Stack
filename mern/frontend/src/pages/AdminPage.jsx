@@ -17,7 +17,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = '/api';
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState('attendance'); // 'attendance' | 'users' | 'system'
