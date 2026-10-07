@@ -143,10 +143,10 @@ export default function LandingPage() {
           </div>
         </form>
 
-        {/* Action Link to /admin */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        {/* Action Link to /portal and Central Admin */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
           <Link
-            to="/admin"
+            to="/portal"
             style={{
               fontSize: '0.875rem',
               fontWeight: 600,
@@ -161,13 +161,31 @@ export default function LandingPage() {
               backgroundColor: '#ffffff',
             }}
           >
-            Vào Trang Quản Trị (/admin)
-            <ArrowUpRight size={14} />
+            Vào Cổng Nhân Viên (/portal)
+            <ArrowRight size={14} />
           </Link>
 
-          <span style={{ fontSize: '0.8125rem', color: 'var(--text-dim)' }}>
-            Không cần cài đặt thêm &bull; Trực tiếp trên trình duyệt
-          </span>
+          <a
+            href="http://localhost:3000"
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              color: 'var(--text-secondary)',
+              textDecoration: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 16px',
+              borderRadius: 'var(--rounded-sm)',
+              border: '1px solid var(--border-subtle)',
+              backgroundColor: '#ffffff',
+            }}
+          >
+            Cổng Quản Trị &amp; Đăng ký mặt
+            <ArrowUpRight size={14} />
+          </a>
         </div>
       </section>
 

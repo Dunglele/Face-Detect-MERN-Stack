@@ -98,7 +98,7 @@ class FaceService:
 
     def _get_mongo_uri(self) -> str:
         """Tìm chuỗi kết nối MongoDB từ biến môi trường hoặc file mern/backend/.env"""
-        uri = os.environ.get("MONGO_URI")
+        uri = os.environ.get("MONGODB_URI") or os.environ.get("MONGO_URI")
         if uri:
             return uri
         backend_env = BASE_DIR.parent / "mern" / "backend" / ".env"
@@ -106,11 +106,13 @@ class FaceService:
             try:
                 for line in backend_env.read_text(encoding="utf-8").splitlines():
                     clean_line = line.strip()
+                    if clean_line.startswith("MONGODB_URI="):
+                        return clean_line.split("=", 1)[1].strip()
                     if clean_line.startswith("MONGO_URI="):
                         return clean_line.split("=", 1)[1].strip()
             except Exception:
                 pass
-        return "mongodb://localhost:27017/test"
+        return "mongodb://localhost:27017/klcn134_attendance"
 
     def _init_mongo(self):
         """Khởi tạo kết nối MongoDB để lưu trữ & nạp vector đặc trưng 128-d"""

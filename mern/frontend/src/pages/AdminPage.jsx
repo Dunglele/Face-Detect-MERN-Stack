@@ -732,9 +732,12 @@ export default function AdminPage() {
 
                   {/* Card Actions: Enroll & Delete */}
                   <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-                    <Link
-                      to={`/demo?mode=enroll&name=${encodeURIComponent(u.name)}&empId=${encodeURIComponent(u.employeeId || '')}&dept=${encodeURIComponent(u.department || '')}`}
+                    <a
+                      href={`http://localhost:3000/?tab=faceEnroll&empCode=${encodeURIComponent(u.employeeCode || u.employeeId || '')}`}
+                      target="_blank"
+                      rel="noreferrer"
                       className="btn-outline"
+                      title="Chuyển sang Cổng Quản trị AIAttendanceWeb3 để nạp vector khuôn mặt"
                       style={{
                         flex: 1,
                         display: 'flex',
@@ -751,8 +754,8 @@ export default function AdminPage() {
                       }}
                     >
                       <Camera size={13} />
-                      {u.isFaceEnrolled ? 'Thêm góc mặt' : 'Đăng ký mặt'}
-                    </Link>
+                      {u.isFaceEnrolled ? 'Cập nhật mặt (Quản trị)' : 'Đăng ký mặt (Quản trị)'}
+                    </a>
 
                     <button
                       onClick={() => setUserToDelete(u)}

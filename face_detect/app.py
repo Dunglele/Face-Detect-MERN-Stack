@@ -1,5 +1,17 @@
-import os
 import sys
+
+# Kiểm tra tương thích phiên bản Python - Thoát ngay nếu không phải Python 3.10 hoặc 3.11
+if sys.version_info.major != 3 or sys.version_info.minor not in (10, 11):
+    print("\n" + "=" * 70, file=sys.stderr)
+    print("❌ [LỖI KHÔNG TƯƠNG THÍCH PHIÊN BẢN PYTHON - THOÁT NGAY]", file=sys.stderr)
+    print(f"Hệ thống AI yêu cầu Python 3.10 hoặc Python 3.11 (khuyến nghị 3.11.x).", file=sys.stderr)
+    print(f"Phiên bản Python hiện tại của bạn: {sys.version.split()[0]}", file=sys.stderr)
+    print("Lý do: Các thư viện AI (dlib, face_recognition, YOLOv11) trên Windows yêu cầu Python 3.10/3.11.", file=sys.stderr)
+    print("Vui lòng cài đặt Python 3.11 (64-bit) và kích hoạt môi trường ảo phù hợp.", file=sys.stderr)
+    print("=" * 70 + "\n", file=sys.stderr)
+    sys.exit(1)
+
+import os
 import time
 import threading
 import warnings

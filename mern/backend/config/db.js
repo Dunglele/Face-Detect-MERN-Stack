@@ -2,9 +2,9 @@ import mongoose from 'mongoose';
 
 export const connectDB = async () => {
   try {
-    const uri = process.env.MONGO_URI || 'mongodb://localhost:27017/face_detect_db';
+    const uri = process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://localhost:27017/klcn134_attendance';
     const conn = await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 15000,
     });
     console.log(`[MongoDB] Connected successfully: ${conn.connection.host}`);
   } catch (error) {

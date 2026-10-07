@@ -5,6 +5,7 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [react()],
   server: {
+    port: 5173,
     allowedHosts: true,
     proxy: {
       '/api': {
@@ -13,4 +14,5 @@ export default defineConfig({
       },
     },
   },
+
 })
