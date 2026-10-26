@@ -15,7 +15,8 @@ import {
   RefreshCw,
   RotateCcw,
   Activity,
-  Database
+  Database,
+  Lock,
 } from 'lucide-react';
 
 const API_BASE = '/api';
@@ -34,6 +35,7 @@ export default function DemoPage() {
   const [detectionResult, setDetectionResult] = useState(null);
   const [uploadedImage, setUploadedImage] = useState(null);
   const [saveSuccess, setSaveSuccess] = useState('');
+  const [attendanceError, setAttendanceError] = useState('');
   const [submittingLog, setSubmittingLog] = useState(false);
   const [noticeMessage, setNoticeMessage] = useState('');
   const [toleranceVal, setToleranceVal] = useState(0.50);
@@ -173,6 +175,7 @@ export default function DemoPage() {
     setIsScanning(true);
     setNoticeMessage('');
     setSaveSuccess('');
+    setAttendanceError('');
 
     try {
       // Create off-screen canvas to capture current video frame
@@ -203,41 +206,71 @@ export default function DemoPage() {
       }
 
       const aiData = await res.json();
+      const hasFaces = Boolean(aiData.success && (aiData.faces_detected > 0 || aiData.facesDetected > 0 || aiData.matched));
 
-      if (aiData.success && aiData.faces_detected > 0) {
-        const topFace = aiData.top_match || aiData.faces[0];
+      if (hasFaces) {
+        const topFace = aiData.top_match || (aiData.faces && aiData.faces[0]) || {};
+        const isMatch = Boolean(aiData.matched || topFace.is_match);
+        const fullName = aiData.fullName || aiData.userName || topFace.fullName || topFace.name || aiData.employeeCode || 'Unknown';
+        const empCode = aiData.employeeCode || topFace.employeeCode || topFace.employeeId || (isMatch ? fullName : 'N/A');
 
-        // Tính toán tọa độ Bounding Box cho Webcam lật gương (scaleX(-1)):
-        // displayLeft = 100% - left% - width%
-        const displayLeft = topFace.relative_bbox.mirrored_left !== undefined
-          ? topFace.relative_bbox.mirrored_left
-          : (100.0 - topFace.relative_bbox.left - topFace.relative_bbox.width).toFixed(2);
+        const confidenceVal = typeof aiData.confidence === 'number'
+          ? aiData.confidence
+          : (typeof aiData.similarity === 'number' ? +(aiData.similarity * 100).toFixed(1) : (typeof topFace.confidence === 'number' ? topFace.confidence : 0));
+
+        let liveScore = null;
+        let isReal = null;
+        let livenessStatus = 'UNKNOWN';
+
+        if (typeof aiData.livenessScore === 'number' && !isNaN(aiData.livenessScore)) {
+          liveScore = aiData.livenessScore <= 1.0 ? +(aiData.livenessScore * 100).toFixed(1) : +aiData.livenessScore.toFixed(1);
+        } else if (aiData.liveness && typeof aiData.liveness.score === 'number') {
+          liveScore = +aiData.liveness.score.toFixed(1);
+        } else if (typeof topFace.liveness_score === 'number') {
+          liveScore = +topFace.liveness_score.toFixed(1);
+        }
+
+        if (liveScore !== null) {
+          const passThreshold = liveScore >= 65;
+          const notSpoof = aiData.spoofType !== 'spoof' && topFace.spoof_type !== 'spoof';
+          isReal = passThreshold && notSpoof;
+          livenessStatus = isReal ? 'REAL' : 'FAKE';
+        }
+
+        const rawBbox = topFace.relative_bbox || topFace.bbox || null;
+        let faceBox = null;
+        if (rawBbox && typeof rawBbox.top === 'number' && typeof rawBbox.width === 'number') {
+          const displayLeft = rawBbox.mirrored_left !== undefined
+            ? rawBbox.mirrored_left
+            : (100.0 - (rawBbox.left || 0) - (rawBbox.width || 0)).toFixed(2);
+          faceBox = {
+            top: `${rawBbox.top}%`,
+            left: `${displayLeft}%`,
+            width: `${rawBbox.width}%`,
+            height: `${rawBbox.height}%`,
+          };
+        }
 
         setDetectionResult({
-          name: topFace.name,
-          confidence: topFace.confidence,
-          isReal: topFace.is_real !== undefined ? topFace.is_real : true,
-          livenessScore: topFace.liveness_score !== undefined ? topFace.liveness_score : 100,
-          livenessStatus: topFace.liveness_status || 'REAL',
-          spoofType: topFace.spoof_type || 'real',
-          faceBox: {
-            top: `${topFace.relative_bbox.top}%`,
-            left: `${displayLeft}%`,
-            width: `${topFace.relative_bbox.width}%`,
-            height: `${topFace.relative_bbox.height}%`,
-          },
-          inferenceTime: aiData.inference_time_ms,
-          isMatch: topFace.is_match,
-          distance: topFace.distance,
-          status: topFace.is_match ? 'Xác thực thành công (Match Verified)' : 'Không khớp (Unknown)',
-          modelUsed: aiData.model_used,
-          facesDetected: aiData.faces_detected,
-          department: topFace.is_match ? 'Nhân sự đã đăng ký trong MongoDB' : 'Chưa có vector trong CSDL',
-          empId: topFace.is_match ? (topFace.name) : 'N/A',
+          name: fullName,
+          confidence: confidenceVal,
+          isReal,
+          livenessScore: liveScore,
+          livenessStatus,
+          spoofType: aiData.spoofType || topFace.spoof_type || null,
+          faceBox,
+          inferenceTime: aiData.inference_time_ms || aiData.timingMs || 0,
+          isMatch,
+          distance: typeof topFace.distance === 'number' ? topFace.distance : (typeof aiData.distance === 'number' ? aiData.distance : null),
+          status: isMatch ? 'Xác thực thành công (Match Verified)' : 'Không khớp (Unknown)',
+          modelUsed: aiData.model_used || aiData.modelVersion || 'AI Service',
+          facesDetected: aiData.faces_detected || aiData.facesDetected || 1,
+          department: isMatch ? 'Hồ sơ đã đồng bộ CSDL' : 'Chưa có vector trong CSDL',
+          empId: empCode,
         });
       } else {
         setDetectionResult(null);
-        setNoticeMessage('YOLOv11 không phát hiện khuôn mặt nào trong khung hình. Vui lòng nhìn thẳng vào camera.');
+        setNoticeMessage('Không phát hiện khuôn mặt nào trong khung hình. Vui lòng nhìn thẳng vào camera.');
       }
     } catch (err) {
       console.warn('Không thể gọi Python AI trực tiếp, fallback sang mô phỏng:', err);
@@ -259,6 +292,7 @@ export default function DemoPage() {
         setDetectionResult(null);
         setNoticeMessage('');
         setSaveSuccess('');
+        setAttendanceError('');
 
         try {
           const targetUrl = `${API_BASE}/ai/predict`;
@@ -273,38 +307,72 @@ export default function DemoPage() {
 
           if (!res.ok) throw new Error(`Status ${res.status}`);
           const aiData = await res.json();
+          const hasFaces = Boolean(aiData.success && (aiData.faces_detected > 0 || aiData.facesDetected > 0 || aiData.matched));
 
-          if (aiData.success && aiData.faces_detected > 0) {
-            const topFace = aiData.top_match || aiData.faces[0];
+          if (hasFaces) {
+            const topFace = aiData.top_match || (aiData.faces && aiData.faces[0]) || {};
+            const isMatch = Boolean(aiData.matched || topFace.is_match);
+            const fullName = aiData.fullName || aiData.userName || topFace.fullName || topFace.name || aiData.employeeCode || 'Unknown';
+            const empCode = aiData.employeeCode || topFace.employeeCode || topFace.employeeId || (isMatch ? fullName : 'N/A');
+
+            const confidenceVal = typeof aiData.confidence === 'number'
+              ? aiData.confidence
+              : (typeof aiData.similarity === 'number' ? +(aiData.similarity * 100).toFixed(1) : (typeof topFace.confidence === 'number' ? topFace.confidence : 0));
+
+            let liveScore = null;
+            let isReal = null;
+            let livenessStatus = 'UNKNOWN';
+
+            if (typeof aiData.livenessScore === 'number' && !isNaN(aiData.livenessScore)) {
+              liveScore = aiData.livenessScore <= 1.0 ? +(aiData.livenessScore * 100).toFixed(1) : +aiData.livenessScore.toFixed(1);
+            } else if (aiData.liveness && typeof aiData.liveness.score === 'number') {
+              liveScore = +aiData.liveness.score.toFixed(1);
+            } else if (typeof topFace.liveness_score === 'number') {
+              liveScore = +topFace.liveness_score.toFixed(1);
+            }
+
+            if (liveScore !== null) {
+              const passThreshold = liveScore >= 65;
+              const notSpoof = aiData.spoofType !== 'spoof' && topFace.spoof_type !== 'spoof';
+              isReal = passThreshold && notSpoof;
+              livenessStatus = isReal ? 'REAL' : 'FAKE';
+            }
+
+            const rawBbox = topFace.relative_bbox || topFace.bbox || null;
+            let faceBox = null;
+            if (rawBbox && typeof rawBbox.top === 'number' && typeof rawBbox.width === 'number') {
+              faceBox = {
+                top: `${rawBbox.top}%`,
+                left: `${rawBbox.left}%`,
+                width: `${rawBbox.width}%`,
+                height: `${rawBbox.height}%`,
+              };
+            }
+
             // Ảnh tĩnh tải lên không lật gương: dùng tọa độ gốc
             setDetectionResult({
-              name: topFace.name,
-              confidence: topFace.confidence,
-              isReal: topFace.is_real !== undefined ? topFace.is_real : true,
-              livenessScore: topFace.liveness_score !== undefined ? topFace.liveness_score : 100,
-              livenessStatus: topFace.liveness_status || 'REAL',
-              spoofType: topFace.spoof_type || 'real',
-              faceBox: {
-                top: `${topFace.relative_bbox.top}%`,
-                left: `${topFace.relative_bbox.left}%`,
-                width: `${topFace.relative_bbox.width}%`,
-                height: `${topFace.relative_bbox.height}%`,
-              },
-              inferenceTime: aiData.inference_time_ms,
-              isMatch: topFace.is_match,
-              distance: topFace.distance,
-              status: topFace.is_match ? 'Xác thực thành công (Match Verified)' : 'Không khớp (Unknown)',
-              modelUsed: aiData.model_used,
-              facesDetected: aiData.faces_detected,
-              department: topFace.is_match ? 'Hồ sơ đã lưu trên MongoDB' : 'Chưa có trong CSDL',
-              empId: topFace.is_match ? (topFace.name) : 'N/A',
+              name: fullName,
+              confidence: confidenceVal,
+              isReal,
+              livenessScore: liveScore,
+              livenessStatus,
+              spoofType: aiData.spoofType || topFace.spoof_type || null,
+              faceBox,
+              inferenceTime: aiData.inference_time_ms || aiData.timingMs || 0,
+              isMatch,
+              distance: typeof topFace.distance === 'number' ? topFace.distance : (typeof aiData.distance === 'number' ? aiData.distance : null),
+              status: isMatch ? 'Xác thực thành công (Match Verified)' : 'Không khớp (Unknown)',
+              modelUsed: aiData.model_used || aiData.modelVersion || 'AI Service',
+              facesDetected: aiData.faces_detected || aiData.facesDetected || 1,
+              department: isMatch ? 'Hồ sơ đã lưu trên MongoDB' : 'Chưa có trong CSDL',
+              empId: empCode,
             });
           } else {
-            setNoticeMessage('YOLOv11 không tìm thấy khuôn mặt nào trong ảnh vừa tải lên.');
+            setNoticeMessage('Không tìm thấy khuôn mặt nào trong ảnh vừa tải lên.');
           }
         } catch (err) {
           console.warn('Lỗi phân tích AI ảnh tải lên:', err);
-          setNoticeMessage('⚠️ Không thể kết nối đến Python AI (port 8000). Hãy chạy: python face_detect/api_server.py');
+          setNoticeMessage('⚠️ Không thể kết nối đến Python AI (port 8000). Hãy đảm bảo AI Service đang chạy.');
         } finally {
           setIsScanning(false);
         }
@@ -315,18 +383,37 @@ export default function DemoPage() {
 
   const handleRecordAttendance = async () => {
     if (!detectionResult) return;
-    if (detectionResult.isReal === false) {
-      setNoticeMessage('⚠️ Cảnh báo: Hệ thống Anti-Spoofing MiniFASNet đã phát hiện khuôn mặt giả mạo! Không thể ghi nhận điểm danh.');
+    setNoticeMessage('');
+    setSaveSuccess('');
+    setAttendanceError('');
+
+    if (detectionResult.isReal !== true) {
+      setAttendanceError('Chưa xác minh sinh trắc học liveness thật. Không thể ghi nhận điểm danh.');
       return;
     }
+    if (!detectionResult.isMatch) {
+      setAttendanceError('Khuôn mặt chưa được nhận diện hoặc chưa khớp trong hệ thống.');
+      return;
+    }
+    if (typeof detectionResult.confidence !== 'number' || detectionResult.confidence < 85) {
+      setAttendanceError(`Độ tin cậy nhận diện (${detectionResult.confidence ?? 0}%) chưa đạt ngưỡng tối thiểu 85%.`);
+      return;
+    }
+    const empCode = detectionResult.empId && detectionResult.empId !== 'N/A' ? detectionResult.empId : null;
+    if (!empCode) {
+      setAttendanceError('Không tìm thấy mã nhân viên hợp lệ để chấm công.');
+      return;
+    }
+
     setSubmittingLog(true);
-    setSaveSuccess('');
 
     const payload = {
       userName: detectionResult.name,
+      employeeCode: empCode,
       confidence: detectionResult.confidence,
+      livenessScore: typeof detectionResult.livenessScore === 'number' ? detectionResult.livenessScore / 100 : null,
       checkInType: 'Check-in',
-      status: detectionResult.isMatch ? 'Present' : 'Unrecognized',
+      status: 'Present',
     };
 
     try {
@@ -336,13 +423,14 @@ export default function DemoPage() {
         body: JSON.stringify(payload),
       });
 
-      if (res.ok) {
-        setSaveSuccess(`Đã ghi nhận điểm danh cho "${detectionResult.name}" vào CSDL MongoDB thành công.`);
+      const resData = await res.json().catch(() => ({}));
+      if (res.ok && resData.success !== false) {
+        setSaveSuccess(`Đã ghi nhận điểm danh cho "${detectionResult.name}" (${empCode}) vào CSDL MongoDB thành công.`);
       } else {
-        setSaveSuccess(`Đã lưu phiên điểm danh cho "${detectionResult.name}".`);
+        setAttendanceError(resData.message || 'Lỗi ghi nhận điểm danh từ máy chủ backend.');
       }
-    } catch {
-      setSaveSuccess(`Đã lưu phiên điểm danh cho "${detectionResult.name}" (Backend offline, hiển thị demo).`);
+    } catch (err) {
+      setAttendanceError(`Không thể kết nối máy chủ backend: ${err.message}. Chưa lưu vào CSDL.`);
     } finally {
       setSubmittingLog(false);
     }
@@ -659,15 +747,20 @@ export default function DemoPage() {
                       boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
                     }}
                   >
-                    {!detectionResult.isReal ? (
+                    {detectionResult.isReal === false ? (
                       <>
                         <AlertTriangle size={12} color="#ffffff" />
-                        [!] GIẢ MẠO: {detectionResult.spoofType === 'print_attack' ? 'ẢNH IN' : 'MÀN HÌNH'} ({detectionResult.livenessScore}% Live)
+                        [!] GIẢ MẠO: {detectionResult.spoofType === 'print_attack' ? 'ẢNH IN' : 'MÀN HÌNH'} {detectionResult.livenessScore !== null ? `(${detectionResult.livenessScore}% Live)` : ''}
+                      </>
+                    ) : detectionResult.isReal === true ? (
+                      <>
+                        <CheckCircle2 size={12} color="#ffffff" />
+                        {detectionResult.name} ({detectionResult.confidence}%) &bull; LIVE: {detectionResult.livenessScore}%
                       </>
                     ) : (
                       <>
                         <CheckCircle2 size={12} color="#ffffff" />
-                        {detectionResult.name} ({detectionResult.confidence}%) &bull; LIVE: {detectionResult.livenessScore}%
+                        {detectionResult.name} ({detectionResult.confidence}%) &bull; {detectionResult.isMatch ? 'Khớp CSDL' : 'Chưa đăng ký'}
                       </>
                     )}
                   </div>
@@ -948,10 +1041,10 @@ export default function DemoPage() {
                             fontSize: '0.95rem',
                             fontWeight: 700,
                             fontFamily: 'var(--font-mono)',
-                            color: detectionResult.isReal ? '#108a55' : '#dc2626',
+                            color: detectionResult.isReal === true ? '#108a55' : (detectionResult.isReal === false ? '#dc2626' : '#d97706'),
                           }}
                         >
-                          {detectionResult.livenessScore}%
+                          {detectionResult.livenessScore !== null ? `${detectionResult.livenessScore}%` : 'Chưa kiểm tra'}
                         </span>
                       </div>
                       <div
@@ -964,16 +1057,16 @@ export default function DemoPage() {
                       >
                         <div
                           style={{
-                            width: `${Math.min(100, Math.max(0, detectionResult.livenessScore))}%`,
+                            width: `${detectionResult.livenessScore !== null ? Math.min(100, Math.max(0, detectionResult.livenessScore)) : 0}%`,
                             height: '100%',
-                            backgroundColor: detectionResult.isReal ? '#108a55' : '#dc2626',
+                            backgroundColor: detectionResult.isReal === true ? '#108a55' : '#dc2626',
                             borderRadius: '999px',
                             transition: 'width 0.4s ease',
                           }}
                         />
                       </div>
                       <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginTop: '4px' }}>
-                        MiniFASNet: ≥ 65% là Live Face
+                        MiniFASNet: ≥ 65% là Live Face (Chống ảnh in, phát video)
                       </div>
                     </div>
                   </div>
@@ -1005,10 +1098,12 @@ export default function DemoPage() {
                         <Activity size={12} color="#108a55" /> Khoảng cách Euclidean
                       </div>
                       <div style={{ fontWeight: 700, marginTop: '2px', fontFamily: 'var(--font-mono)', fontSize: '0.95rem' }}>
-                        {detectionResult.distance ?? '0.315'}
+                        {typeof detectionResult.distance === 'number' ? detectionResult.distance : '--'}
                       </div>
                       <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>
-                        {detectionResult.distance <= 0.50 ? 'Khớp vector (≤ 0.50)' : 'Lệch vector (> 0.50)'}
+                        {typeof detectionResult.distance === 'number'
+                          ? (detectionResult.distance <= 0.50 ? 'Khớp vector (≤ 0.50)' : 'Lệch vector (> 0.50)')
+                          : 'Chưa có thông số khoảng cách'}
                       </div>
                     </div>
 
@@ -1043,27 +1138,29 @@ export default function DemoPage() {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      backgroundColor: detectionResult.isReal ? 'rgba(16, 138, 85, 0.06)' : 'rgba(220, 38, 38, 0.06)',
-                      border: `1px solid ${detectionResult.isReal ? 'rgba(16, 138, 85, 0.22)' : 'rgba(220, 38, 38, 0.22)'}`,
+                      backgroundColor: detectionResult.isReal === true ? 'rgba(16, 138, 85, 0.06)' : 'rgba(220, 38, 38, 0.06)',
+                      border: `1px solid ${detectionResult.isReal === true ? 'rgba(16, 138, 85, 0.22)' : 'rgba(220, 38, 38, 0.22)'}`,
                       borderRadius: '14px',
                       padding: '12px 16px',
                       marginBottom: '18px',
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      {detectionResult.isReal ? (
+                      {detectionResult.isReal === true ? (
                         <ShieldCheck size={22} color="#108a55" />
                       ) : (
                         <ShieldAlert size={22} color="#dc2626" />
                       )}
                       <div>
-                        <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: detectionResult.isReal ? '#108a55' : '#dc2626' }}>
-                          {detectionResult.isReal ? 'Sinh trắc học hợp lệ (Live Face)' : 'Cảnh báo Giả mạo (Spoof Attack)'}
+                        <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: detectionResult.isReal === true ? '#108a55' : '#dc2626' }}>
+                          {detectionResult.isReal === true ? 'Sinh trắc học hợp lệ (Live Face)' : (detectionResult.isReal === false ? 'Cảnh báo Giả mạo (Spoof Attack)' : 'Chưa kiểm tra sinh trắc học')}
                         </div>
                         <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                          {detectionResult.isReal
+                          {detectionResult.isReal === true
                             ? 'MiniFASNet xác nhận người thật đứng trước camera'
-                            : `Phát hiện dạng: ${detectionResult.spoofType === 'print_attack' ? 'Ảnh in giấy' : 'Màn hình chiếu lại'}`}
+                            : (detectionResult.isReal === false
+                                ? `Phát hiện dạng: ${detectionResult.spoofType === 'print_attack' ? 'Ảnh in giấy' : (detectionResult.spoofType === 'screen_attack' || detectionResult.spoofType === 'replay_attack' ? 'Màn hình chiếu lại' : (detectionResult.spoofType || 'Nghi ngờ giả mạo'))}`
+                                : 'Chưa có kết quả phân tích liveness')}
                         </div>
                       </div>
                     </div>
@@ -1074,42 +1171,66 @@ export default function DemoPage() {
                           fontWeight: 700,
                           padding: '3px 8px',
                           borderRadius: '999px',
-                          backgroundColor: detectionResult.isReal ? '#dcfce7' : '#fee2e2',
-                          color: detectionResult.isReal ? '#15803d' : '#b91c1c',
+                          backgroundColor: detectionResult.isReal === true ? '#dcfce7' : '#fee2e2',
+                          color: detectionResult.isReal === true ? '#15803d' : '#b91c1c',
                         }}
                       >
-                        {detectionResult.isReal ? 'Được phép điểm danh' : 'Bị khóa'}
+                        {detectionResult.isReal === true ? 'Được phép điểm danh' : 'Bị khóa'}
                       </div>
                     </div>
                   </div>
 
                   {/* Primary Button to sync with MongoDB */}
-                  <button
-                    className="btn-primary"
-                    onClick={handleRecordAttendance}
-                    disabled={submittingLog || detectionResult.isReal === false}
-                    style={{
-                      width: '100%',
-                      padding: '14px',
-                      backgroundColor: detectionResult.isReal === false ? '#9295a3' : undefined,
-                      cursor: detectionResult.isReal === false ? 'not-allowed' : 'pointer',
-                      boxShadow: detectionResult.isReal === false ? 'none' : undefined,
-                    }}
-                  >
-                    {detectionResult.isReal === false ? (
-                      <>
-                        <Lock size={16} /> Chặn điểm danh: Phát hiện giả mạo
-                      </>
-                    ) : submittingLog ? (
-                      <>
-                        <RefreshCw size={16} className="spin" /> Đang lưu vào MongoDB...
-                      </>
-                    ) : (
-                      <>
-                        <UserCheck size={18} /> Ghi nhận điểm danh vào CSDL
-                      </>
-                    )}
-                  </button>
+                  {(() => {
+                    const isPassedConfidence = typeof detectionResult.confidence === 'number' && detectionResult.confidence >= 85;
+                    const hasValidEmp = Boolean(detectionResult.empId && detectionResult.empId !== 'N/A');
+                    const canRecord = Boolean(detectionResult.isMatch === true && detectionResult.isReal === true && isPassedConfidence && hasValidEmp);
+
+                    return (
+                      <button
+                        className="btn-primary"
+                        onClick={handleRecordAttendance}
+                        disabled={submittingLog || !canRecord}
+                        style={{
+                          width: '100%',
+                          padding: '14px',
+                          backgroundColor: !canRecord ? '#9295a3' : undefined,
+                          cursor: !canRecord ? 'not-allowed' : 'pointer',
+                          boxShadow: !canRecord ? 'none' : undefined,
+                        }}
+                      >
+                        {submittingLog ? (
+                          <>
+                            <RefreshCw size={16} className="spin" /> Đang lưu vào MongoDB...
+                          </>
+                        ) : !detectionResult.isMatch ? (
+                          <>
+                            <Lock size={16} /> Không thể điểm danh: Chưa nhận diện được
+                          </>
+                        ) : detectionResult.isReal === false ? (
+                          <>
+                            <Lock size={16} /> Chặn điểm danh: Phát hiện giả mạo
+                          </>
+                        ) : detectionResult.isReal !== true ? (
+                          <>
+                            <Lock size={16} /> Chưa xác minh liveness thật
+                          </>
+                        ) : !isPassedConfidence ? (
+                          <>
+                            <Lock size={16} /> Độ tin cậy chưa đạt (≥ 85%)
+                          </>
+                        ) : !hasValidEmp ? (
+                          <>
+                            <Lock size={16} /> Thiếu mã nhân viên hợp lệ
+                          </>
+                        ) : (
+                          <>
+                            <UserCheck size={18} /> Ghi nhận điểm danh vào CSDL
+                          </>
+                        )}
+                      </button>
+                    );
+                  })()}
 
                   {saveSuccess && (
                     <div
@@ -1142,6 +1263,25 @@ export default function DemoPage() {
                       >
                         Kiểm tra lượt điểm danh tại trang Quản trị (/admin) &rarr;
                       </Link>
+                    </div>
+                  )}
+
+                  {attendanceError && (
+                    <div
+                      style={{
+                        marginTop: '16px',
+                        padding: '14px 16px',
+                        borderRadius: '16px',
+                        backgroundColor: '#fee2e2',
+                        border: '1px solid #fca5a5',
+                        color: '#b91c1c',
+                        fontSize: '0.875rem',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
+                        <AlertTriangle size={16} />
+                        <span>{attendanceError}</span>
+                      </div>
                     </div>
                   )}
                 </div>

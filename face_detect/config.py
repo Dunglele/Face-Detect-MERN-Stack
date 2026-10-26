@@ -29,8 +29,20 @@ DETECTION_BACKEND = "yolo"
 YOLO_CONFIDENCE = 0.50
 
 # Ngưỡng khoảng cách chuẩn của dlib Euclidean distance (thông thường 0.50 - 0.55)
-# Khoảng cách <= TOLERANCE_THRESHOLD được coi là trùng khớp danh tính
+# Sử dụng làm pivot / điểm quy đổi cho hàm distance_to_confidence_percentage (khoảng cách 0.40 ứng với 50% confidence).
 TOLERANCE_THRESHOLD = 0.40
+
+# Ngưỡng điểm tin cậy tối thiểu (% confidence) để xác thực danh tính trùng khớp (match gate).
+# User chọn điểm tin cậy tối thiểu 60% của Face MERN: confidence >= MIN_MATCH_CONFIDENCE mới coi là is_match.
+MIN_MATCH_CONFIDENCE = 60.0
+
+# Ngưỡng chống nhận nhầm khi có sự cạnh tranh/nhập nhằng danh tính (Identity Ambiguity Gate - fail-closed):
+# Để ngăn mặt lạ hoặc mặt tương đồng bị gán nhầm vào ứng viên gần nhất khi có nhiều danh tính trong CSDL:
+# 1) second_best_distance - best_distance >= MIN_IDENTITY_DISTANCE_MARGIN (chênh lệch tuyệt đối tối thiểu)
+# 2) best_distance / second_best_distance <= MAX_IDENTITY_DISTANCE_RATIO (tỉ lệ khoảng cách tối đa)
+# Nếu không thỏa mãn cả hai điều kiện này khi có >= 2 identity, hệ thống coi là ambiguous -> reject/fail-closed (Unknown).
+MIN_IDENTITY_DISTANCE_MARGIN = 0.05
+MAX_IDENTITY_DISTANCE_RATIO = 0.80
 
 # Tỉ lệ thu nhỏ frame khi nhận diện (0.5 = 1/2 kích thước: cân bằng tốc độ và độ nhạy)
 FRAME_SCALE = 0.5

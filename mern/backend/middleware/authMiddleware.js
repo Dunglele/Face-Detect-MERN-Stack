@@ -1,7 +1,21 @@
 import jwt from 'jsonwebtoken';
 import { User } from '../models/index.js';
 
-export const JWT_SECRET = process.env.JWT_SECRET || 'klcn134-secret-key-for-dev';
+export function getJwtSecret() {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET chưa được cấu hình');
+  }
+  return secret;
+}
+
+export function signAuthToken(payload, options) {
+  return jwt.sign(payload, getJwtSecret(), options);
+}
+
+export function verifyAuthToken(token) {
+  return jwt.verify(token, getJwtSecret());
+}
 
 export async function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -11,7 +25,7 @@ export async function authMiddleware(req, res, next) {
 
   const token = authHeader.split(' ')[1];
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = verifyAuthToken(token);
     const user = await User.findById(decoded.employeeId).select('-passwordHash');
     if (!user || user.status !== 'active') {
       return res.status(401).json({ error: 'Tài khoản không tồn tại hoặc đã bị vô hiệu hóa' });

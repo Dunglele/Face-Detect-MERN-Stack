@@ -37,9 +37,14 @@ export async function authFetch(url, options = {}) {
   };
 
   const response = await fetch(url, { ...options, headers });
-  if (response.status === 401) {
+  // Several portal requests can fail together. Only the first 401 for the
+  // currently active session may clear it and announce the logout; otherwise
+  // late responses can repeatedly wipe the chat's session-expired notice.
+  if (response.status === 401 && token && getToken() === token) {
     clearSession();
-    window.dispatchEvent(new Event('auth:logout'));
+    window.dispatchEvent(new CustomEvent('auth:logout', {
+      detail: { reason: 'unauthorized' },
+    }));
   }
   return response;
 }

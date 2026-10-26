@@ -282,14 +282,14 @@ class FaceApp:
             engine = "YOLOv11 Face + dlib ResNet" if self.service.yolo_model is not None else "dlib HOG + ResNet"
             print(f"[*] Cong nghe AI: {engine}")
             user_count = len(self.service.users_meta)
-            print(f"[*] So nguoi dung hien co trong CSDL: {user_count}")
-            print(f"[*] Co che cham cong: Giu >={CHECKIN_CONFIDENCE_THRESHOLD:.0f}% trong {CHECKIN_HOLD_SECONDS:.0f}s de khoa man hinh")
+            print(f"[*] Số người dùng nạp từ MongoDB: {user_count}")
+            print(f"[*] Cơ chế chấm công: Giữ >={CHECKIN_CONFIDENCE_THRESHOLD:.0f}% trong {CHECKIN_HOLD_SECONDS:.0f}s để khóa màn hình")
             print("-" * 55)
-            print("1. Dang ky khuon mat moi (Hoc da goc do qua Webcam)")
-            print("2. Xac thuc / Diem danh cham cong qua Webcam")
-            print("3. Xem danh sach nguoi dung da dang ky")
-            print("4. Xoa du lieu nguoi dung")
-            print("5. Import anh co san tu thu muc pic/")
+            print("1. [VO HIEU HOA] Dang ky khuon mat moi (Chuyen sang Admin Web3)")
+            print("2. Xac thuc / Diem danh cham cong qua Webcam (Read-only)")
+            print("3. Xem danh sach nguoi dung da nap tu MongoDB")
+            print("4. [VO HIEU HOA] Xoa du lieu nguoi dung (Chuyen sang Admin Web3)")
+            print("5. [VO HIEU HOA] Import anh tu pic/ (Chuyen sang Admin Web3)")
             print("6. Thoat chuong trinh")
             print("=" * 55)
 
@@ -316,121 +316,15 @@ class FaceApp:
                 print("[!] Lua chon khong hop le, vui long thu lai.")
 
     def enroll_user(self):
-        """Chức năng 1: Quét và học nhiều góc mặt của người dùng"""
-        print("\n" + "-" * 50)
-        print("   DANG KY KHUON MAT MOI (HOC DA GOC DO)")
-        print("-" * 50)
-        name = input("Nhap ten nguoi dung can dang ky: ").strip()
-        if not name:
-            print("[!] Ten khong duoc de trong!")
-            return
-
-        if name in self.service.users_meta:
-            confirm = input(f"[?] Nguoi dung '{name}' da co trong he thong. Ban co muon quet de cap nhat lai khong? (y/n): ").strip().lower()
-            if confirm not in ["y", "yes", "dong y"]:
-                print("[*] Da huy thao tac.")
-                return
-
-        cap = cv2.VideoCapture(CAMERA_INDEX)
-        if not cap.isOpened():
-            print("[!] Khong the mo Webcam. Vui long kiem tra lai ket noi camera!")
-            return
-
-        print(f"\n[*] Dang khoi dong camera...")
-        print("[*] Vui long di chuyen mat theo cac huong dan tren man hinh.")
-        print("[*] Nhan 'Q' hoac 'ESC' tren cua so camera de huy.")
-
-        collected_encodings = []
-        collected_images = []
-        last_sample_time = 0.0
-
-        window_name = f"Dang Ky Khuon Mat - {name}"
-        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
-
-        stages = [
-            (0.25, "1. Nhin THANG truc dien vao camera"),
-            (0.50, "2. Nghieng nhe mat sang ben TRAI"),
-            (0.75, "3. Nghieng nhe mat sang ben PHAI"),
-            (1.00, "4. Hoi NGUA len / CUI nhe / Cuoi tu nhien")
-        ]
-
-        try:
-            while len(collected_encodings) < REGISTRATION_SAMPLES_COUNT:
-                ret, frame = cap.read()
-                if not ret:
-                    print("[!] Khong doc duoc frame tu Webcam!")
-                    break
-
-                frame = cv2.flip(frame, 1)
-                display_frame = frame.copy()
-
-                progress = len(collected_encodings) / REGISTRATION_SAMPLES_COUNT
-                current_instruction = stages[-1][1]
-                for threshold, instr in stages:
-                    if progress < threshold:
-                        current_instruction = instr
-                        break
-
-                face_loc, encoding, status = self.service.detect_single_face_for_enrollment(frame)
-
-                now = time.time()
-                is_valid = face_loc is not None and encoding is not None
-
-                if is_valid:
-                    top, right, bottom, left = face_loc
-                    draw_corner_rect(display_frame, (top, right, bottom, left), (0, 255, 0), thickness=2)
-
-                    if now - last_sample_time >= SAMPLE_INTERVAL_SECONDS:
-                        collected_encodings.append(encoding)
-                        margin = 20
-                        h, w = frame.shape[:2]
-                        crop_top = max(0, top - margin)
-                        crop_bottom = min(h, bottom + margin)
-                        crop_left = max(0, left - margin)
-                        crop_right = min(w, right + margin)
-                        crop_img = frame[crop_top:crop_bottom, crop_left:crop_right]
-                        if crop_img.size > 0:
-                            collected_images.append(crop_img)
-
-                        last_sample_time = now
-                        cv2.rectangle(display_frame, (left, top), (right, bottom), (255, 255, 255), 4)
-
-                    cv2.putText(display_frame, "Mat hop le - Giu yen...", (left, top - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 0), 2)
-                else:
-                    cv2.putText(display_frame, status, (30, 80),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
-
-                draw_top_hud(display_frame, f"DANG KY: {name.upper()}", "Di chuyen nhe mat theo huong dan | Nhan 'Q' de huy")
-                draw_enrollment_progress(display_frame, len(collected_encodings), REGISTRATION_SAMPLES_COUNT, current_instruction)
-
-                cv2.imshow(window_name, display_frame)
-
-                key = cv2.waitKey(1) & 0xFF
-                if key == ord('q') or key == 27:
-                    print("\n[*] Nguoi dung da huy thao tac dang ky.")
-                    return
-
-            print(f"\n[+] Da thu thap du {REGISTRATION_SAMPLES_COUNT} mau goc mat! Dang luu du lieu...")
-            
-            overlay = display_frame.copy()
-            cv2.rectangle(overlay, (0, 0), (display_frame.shape[1], display_frame.shape[0]), (0, 100, 0), -1)
-            cv2.addWeighted(overlay, 0.7, display_frame, 0.3, 0, display_frame)
-            cv2.putText(display_frame, "DANG KY THANH CONG!", (60, display_frame.shape[0] // 2),
-                        cv2.FONT_HERSHEY_DUPLEX, 1.1, (255, 255, 255), 2)
-            cv2.imshow(window_name, display_frame)
-            cv2.waitKey(1200)
-
-            success = self.service.register_user(name, collected_encodings, collected_images)
-            if success:
-                print(f"[+] DANG KY THANH CONG!")
-                print(f"[+] Da luu {len(collected_encodings)} vector dac trung vao file encodings.pkl cho nguoi dung '{name}'.")
-            else:
-                print(f"[!] Co loi xay ra khi luu du lieu!")
-
-        finally:
-            cap.release()
-            cv2.destroyAllWindows()
+        """[VO HIEU HOA] Nghiep vu dang ky khuon mat thuoc AIAttendanceWeb3 Admin Service"""
+        print("\n" + "=" * 65)
+        print("[!] CHUC NANG DA BI VO HIEU HOA THEO KIEN TRUC MICROSERVICE:")
+        print("    Dang ky khuon mat nhan vien thuoc quyen quan tri doc quyen cua")
+        print("    AIAttendanceWeb3 Admin Service (Port 4000 / AI Service Port 8000).")
+        print("    Vui long su dung giao dien Admin (FaceEnrollPage) de dang ky.")
+        print("    Face AI hoat dong o che do Read-Only de bao ve tinh toan ven CSDL.")
+        print("=" * 65)
+        return
 
     def recognize_live(self):
         """
@@ -657,30 +551,23 @@ class FaceApp:
         print("=" * 65)
 
     def delete_user(self):
-        """Chức năng 4: Xóa người dùng"""
-        self.list_users()
-        users = self.service.get_users_list()
-        if not users:
-            return
-
-        name = input("\nNhap ten nguoi dung muon xoa: ").strip()
-        if not name:
-            return
-
-        confirm = input(f"[?] Ban co chac chan muon xoa nguoi dung '{name}' khong? (y/n): ").strip().lower()
-        if confirm in ["y", "yes", "dong y"]:
-            if self.service.delete_user(name):
-                print(f"[+] Da xoa thanh cong nguoi dung '{name}'!")
-            else:
-                print(f"[!] Khong tim thay nguoi dung co ten '{name}'!")
-        else:
-            print("[*] Da huy thao tac xoa.")
+        """[VO HIEU HOA] Nghiep vu xoa nguoi dung thuoc AIAttendanceWeb3 Admin Service"""
+        print("\n" + "=" * 65)
+        print("[!] CHUC NANG DA BI VO HIEU HOA THEO KIEN TRUC MICROSERVICE:")
+        print("    Xoa ho so nguoi dung thuoc tham quyen doc quyen cua")
+        print("    AIAttendanceWeb3 Admin Service (Port 4000).")
+        print("    Face AI hoat dong o che do Read-Only va khong duoc phep sua/xoa CSDL.")
+        print("=" * 65)
+        return
 
     def import_legacy_photos(self):
-        """Chức năng 5: Nhập dữ liệu từ thư mục pic/"""
-        print("\n[*] Dang quet va nap anh tu thu muc pic/...")
-        count = self.service.import_legacy_pic_folder()
-        print(f"[+] Da import them {count} nguoi dung tu thu muc pic/ vao co so du lieu.")
+        """[VO HIEU HOA] Import anh cuc bo bi vo hieu hoa de tranh ghi lech danh ba Kiosk"""
+        print("\n" + "=" * 65)
+        print("[!] CHUC NANG DA BI VO HIEU HOA THEO KIEN TRUC MICROSERVICE:")
+        print("    Du lieu nhan dien bat buoc phai do Admin enroll dong bo tu MongoDB.")
+        print("    Khong tu y import file anh cuc bo vao he thong.")
+        print("=" * 65)
+        return
 
 
 if __name__ == "__main__":

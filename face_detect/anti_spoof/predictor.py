@@ -190,15 +190,27 @@ class AntiSpoofPredictor:
         - liveness_status: str ("REAL" | "SPOOF")
         - spoof_type: str ("real" | "print_attack" | "replay_attack")
         """
-        if frame is None or frame.size == 0 or not self.models:
+        # FAIL-CLOSED: Tuyệt đối không mặc định is_real=True khi mô hình chưa nạp hoặc frame trống
+        if frame is None or frame.size == 0:
             return {
-                "is_real": True,
-                "liveness_score": 100.0,
-                "liveness_status": "REAL",
-                "spoof_type": "real",
-                "real_prob": 1.0,
-                "note": "Anti-spoofing not active or frame empty",
+                "is_real": False,
+                "liveness_score": 0.0,
+                "liveness_status": "SPOOF",
+                "spoof_type": "empty_frame",
+                "real_prob": 0.0,
+                "note": "Frame is empty or invalid - fail closed",
             }
+
+        if not self.models:
+            return {
+                "is_real": False,
+                "liveness_score": 0.0,
+                "liveness_status": "SPOOF",
+                "spoof_type": "model_missing",
+                "real_prob": 0.0,
+                "note": "Anti-spoofing models not loaded - fail closed",
+            }
+
 
         # Chuyển đổi định dạng bbox về [x, y, w, h] chuẩn cho cropper
         if bbox_format in ("top_right_bottom_left", "trbl"):

@@ -1,7 +1,6 @@
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import { User, Department } from '../models/index.js';
-import { JWT_SECRET } from '../middleware/authMiddleware.js';
+import { signAuthToken } from '../middleware/authMiddleware.js';
 
 export async function login(req, res) {
   try {
@@ -32,9 +31,8 @@ export async function login(req, res) {
       return res.status(401).json({ error: 'Mã nhân viên hoặc mật khẩu không chính xác' });
     }
 
-    const token = jwt.sign(
+    const token = signAuthToken(
       { employeeId: user._id.toString(), role: user.role },
-      JWT_SECRET,
       { expiresIn: '12h' }
     );
 

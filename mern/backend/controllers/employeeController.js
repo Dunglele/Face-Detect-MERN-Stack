@@ -55,6 +55,8 @@ export async function getMyAttendance(req, res) {
       return {
         _id: r._id,
         workDate: ymd,
+        checkInAt: r.checkInAt ? r.checkInAt.toISOString() : null,
+        checkOutAt: r.checkOutAt ? r.checkOutAt.toISOString() : null,
         checkInTime: r.checkInAt ? localHHMM(r.checkInAt) : null,
         checkOutTime: r.checkOutAt ? localHHMM(r.checkOutAt) : null,
         status: r.status,
@@ -67,6 +69,8 @@ export async function getMyAttendance(req, res) {
               code: r.shiftId.code,
               name: r.shiftId.name,
               time: `${r.shiftId.startTime} - ${r.shiftId.endTime}`,
+              startTime: r.shiftId.startTime,
+              endTime: r.shiftId.endTime,
             }
           : null,
       };

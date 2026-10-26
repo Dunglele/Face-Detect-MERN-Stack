@@ -1,71 +1,86 @@
 import axios from 'axios';
 
 const CENTRAL_BACKEND_URL = process.env.CENTRAL_BACKEND_URL || 'http://localhost:4000';
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
 
 export async function handleChat(req, res) {
   try {
-    const { message } = req.body;
-    if (!message || !message.trim()) {
-      return res.status(400).json({ error: 'Nội dung tin nhắn không được để trống' });
+    const body = req.body;
+    if (!body || typeof body !== 'object') {
+      return res.status(400).json({ error: 'Dữ liệu yêu cầu không hợp lệ' });
+    }
+
+    const { message } = body;
+    if (typeof message !== 'string' || !message.trim()) {
+      return res.status(400).json({ error: 'Nội dung tin nhắn không được để trống và phải là chuỗi hợp lệ' });
     }
 
     const token = req.headers.authorization;
+    if (!token) {
+      return res.status(401).json({ error: 'Yêu cầu đăng nhập' });
+    }
 
-    // 1. Ưu tiên gọi sang Central Backend của AIAttendanceWeb3 (Port 4000)
-    // Nơi đây có đầy đủ PhoBERT NLU + Business Database queries
+    const trimmedText = message.trim();
+
     try {
       const response = await axios.post(
         `${CENTRAL_BACKEND_URL}/api/chat`,
-        { message: message.trim() },
+        { text: trimmedText },
         {
           headers: {
             'Content-Type': 'application/json',
-            ...(token ? { Authorization: token } : {}),
+            Authorization: token,
           },
-          timeout: 6000,
+          timeout: 30000,
         }
       );
 
-      return res.json({
-        success: true,
-        source: 'central_backend',
-        ...response.data,
-      });
-    } catch (centralErr) {
-      // 2. Fallback: Nếu backend 4000 bận hoặc không kết nối, thử gọi thẳng sang AI Service (Port 8000)
-      try {
-        const aiRes = await axios.post(
-          `${AI_SERVICE_URL}/nlu/predict`,
-          { text: message.trim() },
-          { timeout: 4000 }
-        );
+      const data = response.data;
+      if (!data || typeof data !== 'object') {
+        return res.status(502).json({ error: 'Phản hồi từ Central Backend không hợp lệ' });
+      }
 
-        const { intent, confidence } = aiRes.data;
-        let fallbackAnswer = `[AI PhoBERT] Dự đoán ý định: ${intent} (Độ tin cậy: ${(confidence * 100).toFixed(1)}%).`;
-        if (intent === 'greeting') {
-          fallbackAnswer = 'Xin chào bạn! Mình là Trợ lý ảo AI của hệ thống chấm công. Bạn cần hỗ trợ gì hôm nay?';
-        } else if (intent === 'my_leave_status') {
-          fallbackAnswer = 'Bạn có thể xem chi tiết số ngày phép còn lại tại tab "Đơn Nghỉ Phép" ở Cổng nhân viên nhé!';
-        } else if (intent === 'check_attendance_status') {
-          fallbackAnswer = 'Bạn có thể theo dõi chi tiết giờ vào/ra tại tab "Bảng Chấm Công" bên cạnh.';
+      if (data.success === false) {
+        return res.status(502).json({ error: data.error || data.message || 'Central AI Hub xử lý thất bại' });
+      }
+
+      if (typeof data.answer !== 'string' || !data.answer.trim()) {
+        return res.status(502).json({ error: 'Central AI Hub trả về câu trả lời rỗng hoặc không đúng định dạng' });
+      }
+
+      return res.status(response.status || 200).json({
+        answer: data.answer.trim(),
+        intent: data.intent || null,
+        intentConfidence: typeof data.intentConfidence === 'number' ? data.intentConfidence : null,
+      });
+    } catch (error) {
+      if (error.response) {
+        const status = error.response.status;
+        const errorData = error.response.data;
+        const errorMsg =
+          (typeof errorData === 'object' && errorData !== null ? errorData.error || errorData.message : null) ||
+          `Lỗi từ Central Backend (${status})`;
+
+        if (status === 401) {
+          return res.status(401).json({ error: errorMsg || 'Phiên làm việc hết hạn hoặc token không hợp lệ' });
+        }
+        if (status === 403) {
+          return res.status(403).json({ error: errorMsg || 'Bạn không có quyền thực hiện thao tác này' });
         }
 
-        return res.json({
-          success: true,
-          source: 'ai_service_direct',
-          answer: fallbackAnswer,
-          intent,
-          confidence,
-        });
-      } catch (aiErr) {
-        // Fallback nhẹ nếu cả 2 chưa bật
-        return res.json({
-          success: true,
-          source: 'local_fallback',
-          answer: `Xin chào ${req.user?.fullName || 'bạn'}! Tôi đã ghi nhận câu hỏi: "${message}". Hiện Central AI Service (Port 4000/8000) đang khởi động. Bạn có thể tra cứu thông tin trực tiếp tại các tab Báo cáo chấm công hoặc Đơn nghỉ phép!`,
+        return res.status(status).json({
+          error: errorMsg,
         });
       }
+
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        return res.status(504).json({
+          error: 'Central AI Hub phản hồi quá hạn (timeout). Vui lòng thử lại sau.',
+        });
+      }
+
+      return res.status(503).json({
+        error: 'Không thể kết nối tới Central AI Hub (offline hoặc không thể truy cập).',
+      });
     }
   } catch (err) {
     return res.status(500).json({ error: 'Lỗi xử lý chatbot: ' + err.message });

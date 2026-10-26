@@ -18,3 +18,18 @@ setuptools<81
 
 # Kết hợp ultralytics tận dụng thế mạnh của YOLO trong nhận diện khuôn mặt
 ultralytics>=8.4.143
+
+# Deep Learning Framework cho Anti-Spoofing MiniFASNet
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Driver kết nối cơ sở dữ liệu MongoDB Atlas / Local dùng chung
+pymongo>=4.6.0
+
+# REST API Engine (FastAPI & Uvicorn) cho api_server.py
+fastapi>=0.100.0
+uvicorn[standard]>=0.22.0
+pydantic>=2.0.0
+
+# HTTP Client cho luồng đồng bộ attendance sang Express Backend
+requests>=2.28.0

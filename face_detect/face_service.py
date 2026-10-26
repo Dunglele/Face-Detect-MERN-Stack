@@ -2,7 +2,7 @@ import os
 import pickle
 import time
 import warnings
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Tuple, Dict, Any, Optional
 
@@ -26,6 +26,9 @@ from config import (
     DETECTION_BACKEND,
     YOLO_CONFIDENCE,
     TOLERANCE_THRESHOLD,
+    MIN_MATCH_CONFIDENCE,
+    MIN_IDENTITY_DISTANCE_MARGIN,
+    MAX_IDENTITY_DISTANCE_RATIO,
     FRAME_SCALE,
     LEGACY_PIC_DIR,
     SAMPLE_INTERVAL_SECONDS,
@@ -47,6 +50,82 @@ try:
     ULTRALYTICS_AVAILABLE = True
 except ImportError:
     ULTRALYTICS_AVAILABLE = False
+
+
+import unicodedata
+
+def normalize_search_name(text: str) -> str:
+    """Loại bỏ dấu tiếng Việt và chuyển sang chữ thường (chuẩn User.searchName của CSDL)"""
+    if not text:
+        return ""
+    nfkd = unicodedata.normalize('NFKD', text)
+    ascii_text = ''.join([c for c in nfkd if not unicodedata.combining(c)])
+    return ascii_text.lower().replace('đ', 'd').replace('Đ', 'd').strip()
+
+
+def safe_l2_normalize(vec: Any) -> Optional[np.ndarray]:
+    """
+    Chuẩn hóa L2 an toàn cho vector đặc trưng 128 chiều.
+    - Hỗ trợ list hoặc np.ndarray.
+    - Kiểm tra độ dài đúng 128.
+    - Loại bỏ vector chứa giá trị NaN, Inf hoặc không hữu hạn.
+    - Loại bỏ zero vector / norm gần bằng 0 (< 1e-12) hoặc norm không hữu hạn.
+    - Loại bỏ trường hợp vector có thành phần quá lớn gây overflow/norm không hữu hạn hoặc kết quả không hữu hạn.
+    Trả về numpy array float64 đã chuẩn hóa L2 (norm == 1.0) hoặc None nếu không hợp lệ.
+    """
+    if vec is None:
+        return None
+    try:
+        arr = np.array(vec, dtype=np.float64).flatten()
+        if arr.shape != (128,):
+            return None
+        if not np.all(np.isfinite(arr)):
+            return None
+        norm = np.linalg.norm(arr)
+        if not np.isfinite(norm) or norm < 1e-12:
+            return None
+        normalized = arr / norm
+        if not np.all(np.isfinite(normalized)):
+            return None
+        return normalized
+    except Exception:
+        return None
+
+
+def compute_representative_embedding(encodings: List[Any]) -> Optional[List[float]]:
+    """
+    Tính vector đặc trưng 128 chiều trung bình và chuẩn hóa L2
+    (chuẩn users.face.embedding của AIAttendanceWeb3 dlib ResNet-34:
+     mean các vector raw hợp lệ rồi chuẩn hóa L2 một lần duy nhất).
+    """
+    if not encodings:
+        return None
+    valid_raw_arrs = []
+    for e in encodings:
+        if e is None:
+            continue
+        try:
+            arr = np.array(e, dtype=np.float64).flatten()
+            if arr.shape != (128,):
+                continue
+            if not np.all(np.isfinite(arr)):
+                continue
+            # Kiểm tra vector không phải zero vector hay norm không hợp lệ
+            norm = np.linalg.norm(arr)
+            if not np.isfinite(norm) or norm < 1e-12:
+                continue
+            valid_raw_arrs.append(arr)
+        except Exception:
+            continue
+
+    if not valid_raw_arrs:
+        return None
+
+    mean_vec = np.mean(valid_raw_arrs, axis=0)
+    norm_mean = safe_l2_normalize(mean_vec)
+    if norm_mean is None:
+        return None
+    return [round(float(x), 6) for x in norm_mean.tolist()]
 
 
 def distance_to_confidence_percentage(face_distance: float, face_match_threshold: float = TOLERANCE_THRESHOLD) -> float:
@@ -91,10 +170,14 @@ class FaceService:
         self._init_anti_spoof()
         self._init_mongo()
 
-        # Nạp dữ liệu: Ưu tiên nạp từ MongoDB, fallback sang file encodings.pkl
+        # Nạp dữ liệu: CHỈ nạp từ MongoDB do Admin enroll (AIAttendanceWeb3).
+        # FAIL-CLOSED: Tuyệt đối không fallback sang encodings.pkl cục bộ cho API/kiosk!
         loaded_from_mongo = self.load_database_from_mongo()
         if not loaded_from_mongo:
-            self.load_database()
+            print("[!] FAIL-CLOSED: Khong the ket noi MongoDB hoac loi khi doc. Danh ba nhan dien trong!")
+            self.known_encodings = []
+            self.known_names = []
+            self.users_meta = {}
 
     def _get_mongo_uri(self) -> str:
         """Tìm chuỗi kết nối MongoDB từ biến môi trường hoặc file mern/backend/.env"""
@@ -126,18 +209,18 @@ class FaceService:
             try:
                 self.db = self.mongo_client.get_default_database()
             except Exception:
-                self.db = self.mongo_client["test"]
+                self.db = self.mongo_client["klcn134_attendance"]
             self.db.command("ping")
             cols = self.db.list_collection_names()
-            if "user" in cols:
-                self.users_collection = self.db["user"]
-                coll_name = "user"
-            elif "users" in cols:
+            if "users" in cols:
                 self.users_collection = self.db["users"]
                 coll_name = "users"
-            else:
+            elif "user" in cols:
                 self.users_collection = self.db["user"]
                 coll_name = "user"
+            else:
+                self.users_collection = self.db["users"]
+                coll_name = "users"
             self.mongo_connected = True
             print(f"[*] Ket noi MongoDB thanh cong den DB '{self.db.name}', collection '{coll_name}'")
         except Exception as e:
@@ -149,16 +232,27 @@ class FaceService:
 
     def load_database_from_mongo(self) -> bool:
         """
-        Nạp toàn bộ vector đặc trưng từ MongoDB collection 'users'.
-        Nếu MongoDB chưa có vector nào nhưng encodings.pkl có dữ liệu,
-        tự động đẩy vector từ encodings.pkl lên MongoDB.
+        Nạp vector đặc trưng từ MongoDB collection 'users'.
+        Hỗ trợ đọc song song schema mới (face.embedding/fullName/employeeCode)
+        và fallback schema cũ (faceDescriptors/isFaceEnrolled/name/employeeId) để không mất dữ liệu.
+        Face AI là Read-Only consumer, FAIL-CLOSED:
+        - Nếu mất kết nối Mongo: danh bạ rỗng, không fallback sang encodings.pkl.
+        - Nếu DB rỗng (chưa có ai enroll): danh bạ rỗng, không fallback và tuyệt đối không tự ý sync local lên Mongo.
+        - face.enrolled=false (explicit) thắng tuyệt đối: KHÔNG nạp embedding dù field embedding còn tồn tại.
+        - Key nội bộ là mongo_id (duy nhất), không phải tên — tránh collision khi trùng tên.
         """
         if not self.mongo_connected or self.users_collection is None:
+            self.known_encodings = []
+            self.known_names = []
+            self.users_meta = {}
             return False
 
         try:
+            # Truy vấn: lấy tài liệu CÓ khả năng đã enrolled (để lọc tiếp ở Python).
+            # KHÔNG dựa vào $or với face.embedding vì cần đảm bảo face.enrolled=false thắng.
             cursor = self.users_collection.find({
                 "$or": [
+                    {"face.enrolled": True},
                     {"faceDescriptors.0": {"$exists": True}},
                     {"isFaceEnrolled": True}
                 ]
@@ -166,96 +260,105 @@ class FaceService:
             user_docs = list(cursor)
 
             if not user_docs:
-                print("[*] MongoDB chua co vector khuon mat nao. Kiem tra file encodings.pkl cuc bo...")
-                if ENCODINGS_FILE.exists():
-                    self.load_database()
-                    if len(self.known_encodings) > 0:
-                        print(f"[*] Dang tu dong dong bo {len(self.known_encodings)} vectors cua {len(self.users_meta)} nguoi tu encodings.pkl len MongoDB...")
-                        self.sync_local_to_mongo()
-                        return True
-                return False
+                self.known_encodings = []
+                self.known_names = []
+                self.users_meta = {}
+                print("[*] MongoDB chưa có vector khuôn mặt nào do Admin enroll. FAIL-CLOSED: Danh bạ nhận diện trống!")
+                return True
 
             new_encodings = []
-            new_names = []
-            new_meta = {}
+            new_names = []     # parallel với new_encodings, lưu meta_key (mongo_id)
+            new_meta = {}      # key = mongo_id (duy nhất, tránh collision trùng tên)
 
             for doc in user_docs:
-                name = doc.get("name", "").strip()
-                if not name:
-                    continue
-                descriptors = doc.get("faceDescriptors", [])
-                if not descriptors:
+                mongo_id = str(doc.get("_id", ""))
+                full_name = (doc.get("fullName") or doc.get("name") or "").strip()
+                emp_code = (doc.get("employeeCode") or doc.get("employeeId") or "").strip()
+                display_name = full_name or emp_code
+                if not display_name:
                     continue
 
-                for desc in descriptors:
-                    if len(desc) == 128:
-                        new_encodings.append(np.array(desc, dtype=np.float64))
-                        new_names.append(name)
+                # === KIỂM TRA ENROLLED STATUS ===
+                face_obj = doc.get("face") or {}
+                face_enrolled = face_obj.get("enrolled")  # có thể là True / False / None / missing
 
-                new_meta[name] = {
-                    "sample_count": len(descriptors),
-                    "employee_id": doc.get("employeeId", ""),
-                    "department": doc.get("department", "General"),
+                # face.enrolled=False (explicit) → BỎ QUA hoàn toàn, ngay cả khi embedding còn tồn tại
+                if face_enrolled is False:
+                    continue
+
+                # Schema cũ: isFaceEnrolled=False (explicit) → cũng bỏ qua
+                is_face_enrolled_old = doc.get("isFaceEnrolled")
+                if is_face_enrolled_old is False and face_enrolled is not True:
+                    continue
+
+                user_encs = []
+
+                # 1. Ưu tiên nạp theo schema mới: doc.face.embedding (128-d float array)
+                # Chỉ thực hiện khi face.enrolled không phải False (đã lọc ở trên)
+                new_emb = face_obj.get("embedding")
+                if isinstance(new_emb, list) and len(new_emb) == 128:
+                    norm_vec = safe_l2_normalize(new_emb)
+                    if norm_vec is not None:
+                        user_encs.append(norm_vec)
+                elif isinstance(new_emb, list) and len(new_emb) > 0 and isinstance(new_emb[0], (list, np.ndarray)):
+                    for v in new_emb:
+                        if len(v) == 128:
+                            norm_vec = safe_l2_normalize(v)
+                            if norm_vec is not None:
+                                user_encs.append(norm_vec)
+
+                # 2. Fallback sang schema cũ nếu schema mới chưa có vector (tránh mất dữ liệu người dùng cũ)
+                if not user_encs:
+                    old_descriptors = doc.get("faceDescriptors", [])
+                    for desc in old_descriptors:
+                        if len(desc) == 128:
+                            norm_vec = safe_l2_normalize(desc)
+                            if norm_vec is not None:
+                                user_encs.append(norm_vec)
+
+                if not user_encs:
+                    continue
+
+                # Dùng mongo_id làm khóa định danh nội bộ (duy nhất) để tránh collision trùng tên.
+                # known_names lưu mongo_id thay vì display_name để tra ngược ra employeeCode.
+                meta_key = mongo_id if mongo_id else (emp_code if emp_code else display_name)
+
+                for enc in user_encs:
+                    new_encodings.append(enc)
+                    new_names.append(meta_key)
+
+                new_meta[meta_key] = {
+                    "sample_count": len(user_encs),
+                    "employee_code": emp_code,
+                    "employee_id": emp_code,  # backward compatibility
+                    "full_name": full_name or display_name,
+                    "name": display_name,      # human-readable, backward compatibility
+                    "department": doc.get("department") or str(doc.get("departmentId", "General")),
                     "email": doc.get("email", ""),
-                    "mongo_id": str(doc.get("_id", "")),
+                    "mongo_id": mongo_id,
                     "registered_at": str(doc.get("updatedAt", doc.get("createdAt", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))))
                 }
 
             self.known_encodings = new_encodings
             self.known_names = new_names
             self.users_meta = new_meta
-            print(f"[*] Da nap thanh cong {len(self.known_encodings)} vectors cua {len(self.users_meta)} nguoi dung tu MongoDB!")
-
-            # Cập nhật sao lưu vào encodings.pkl
-            self.save_database()
+            print(f"[*] Đã nạp thành công {len(self.known_encodings)} vectors của {len(self.users_meta)} người dùng từ MongoDB (Admin enrolled)!")
             return True
 
         except Exception as e:
-            print(f"[!] Loi khi doc vector tu MongoDB: {e}")
+            print(f"[!] Lỗi khi đọc vector từ MongoDB: {e}. FAIL-CLOSED: Danh bạ nhận diện trống.")
+            self.known_encodings = []
+            self.known_names = []
+            self.users_meta = {}
             return False
 
     def sync_local_to_mongo(self) -> bool:
-        """Đồng bộ toàn bộ vector đang có trong RAM / encodings.pkl lên MongoDB"""
-        if not self.mongo_connected or self.users_collection is None:
-            return False
-
-        try:
-            grouped: Dict[str, List[List[float]]] = {}
-            for name, enc in zip(self.known_names, self.known_encodings):
-                if name not in grouped:
-                    grouped[name] = []
-                grouped[name].append(enc.tolist() if isinstance(enc, np.ndarray) else [float(x) for x in enc])
-
-            for idx, (name, descs) in enumerate(grouped.items()):
-                meta = self.users_meta.get(name, {})
-                emp_id = meta.get("employee_id") or f"EMP-{idx+1:03d}"
-                dept = meta.get("department") or "AI & Engineering"
-                email = meta.get("email") or f"{name.lower().replace(' ', '')}@company.com"
-
-                self.users_collection.update_one(
-                    {"name": name},
-                    {
-                        "$set": {
-                            "name": name,
-                            "employeeId": emp_id,
-                            "department": dept,
-                            "email": email,
-                            "isFaceEnrolled": True,
-                            "faceSampleCount": len(descs),
-                            "faceDescriptors": descs,
-                            "updatedAt": datetime.now()
-                        },
-                        "$setOnInsert": {
-                            "createdAt": datetime.now()
-                        }
-                    },
-                    upsert=True
-                )
-            print(f"[*] Da dong bo {len(grouped)} nguoi dung len MongoDB collection 'users' thanh cong!")
-            return True
-        except Exception as e:
-            print(f"[!] Loi khi dong bo vector len MongoDB: {e}")
-            return False
+        """
+        [VÔ HIỆU HÓA] Face AI là Read-Only consumer, tuyệt đối KHÔNG ghi vào MongoDB users.
+        Mọi quyền ghi User và Face Embedding thuộc sở hữu độc quyền của AIAttendanceWeb3 Admin Service.
+        """
+        print("[!] CẢNH BÁO: Face AI không có quyền ghi MongoDB. sync_local_to_mongo bị vô hiệu hóa theo kiến trúc microservice.")
+        return False
 
     def register_user_mongo(
         self,
@@ -267,47 +370,11 @@ class FaceService:
         email: Optional[str] = None
     ) -> bool:
         """
-        Đăng ký người dùng mới:
-        1. Lưu mảng vector 128-d vào MongoDB collection 'users'
-        2. Nạp ngay vào bộ nhớ RAM (self.known_encodings)
-        3. Lưu bản sao vào encodings.pkl và lưu ảnh mẫu vào data/faces/
+        [VÔ HIỆU HÓA] Face AI tuyệt đối KHÔNG ghi CSDL MongoDB users.
+        Quyền enroll thuộc AIAttendanceWeb3 Admin Service (Port 8000 /api/v1/face/enroll).
         """
-        if not encodings:
-            return False
-
-        name = name.strip()
-        descs = [enc.tolist() if isinstance(enc, np.ndarray) else [float(x) for x in enc] for enc in encodings]
-
-        # Cập nhật trên MongoDB nếu có kết nối
-        if self.mongo_connected and self.users_collection is not None:
-            try:
-                set_data = {
-                    "name": name,
-                    "isFaceEnrolled": True,
-                    "faceSampleCount": len(descs),
-                    "faceDescriptors": descs,
-                    "updatedAt": datetime.now(),
-                    "employeeId": employee_id or f"EMP-{int(time.time()) % 10000:04d}",
-                    "department": department or "AI & Engineering",
-                    "email": email or f"{name.lower().replace(' ', '')}@company.com"
-                }
-
-                self.users_collection.update_one(
-                    {"name": name},
-                    {
-                        "$set": set_data,
-                        "$setOnInsert": {
-                            "createdAt": datetime.now()
-                        }
-                    },
-                    upsert=True
-                )
-                print(f"[*] Da luu {len(descs)} vector cua '{name}' vao MongoDB thanh cong!")
-            except Exception as e:
-                print(f"[!] Loi luu MongoDB cho '{name}': {e}")
-
-        # Cập nhật bộ nhớ cục bộ và file encodings.pkl
-        return self.register_user(name, encodings, sample_images)
+        print(f"[!] CẢNH BÁO: Face AI không có quyền ghi MongoDB users cho '{name}'. Chức năng bị vô hiệu hóa.")
+        return False
 
     def _init_yolo(self):
         """Khởi tạo mô hình YOLO Face nếu có sẵn file mô hình và thư viện ultralytics"""
@@ -430,11 +497,16 @@ class FaceService:
             return False
 
     def get_users_list(self) -> List[Dict[str, Any]]:
-        """Lấy danh sách người dùng đã đăng ký kèm số lượng mẫu góc"""
+        """Lấy danh sách người dùng đã đăng ký kèm số lượng mẫu góc.
+        Hiển thị full_name từ metadata, giữ mongo_id làm khóa nội bộ."""
         user_list = []
-        for name, meta in sorted(self.users_meta.items()):
+        for key, meta in sorted(self.users_meta.items()):
+            display_name = meta.get("full_name") or meta.get("name") or key
             user_list.append({
-                "name": name,
+                "id": key,
+                "name": display_name,
+                "full_name": display_name,
+                "employee_code": meta.get("employee_code", ""),
                 "sample_count": meta.get("sample_count", 0),
                 "registered_at": meta.get("registered_at", "N/A")
             })
@@ -468,15 +540,9 @@ class FaceService:
             except Exception:
                 pass
 
-        # Xóa khỏi MongoDB nếu có kết nối
-        if self.mongo_connected and self.users_collection is not None:
-            try:
-                self.users_collection.delete_one({"name": name})
-                print(f"[*] Da xoa nguoi dung '{name}' khoi MongoDB collection 'users'")
-            except Exception as e:
-                print(f"[!] Loi khi xoa '{name}' khoi MongoDB: {e}")
-
-        self.save_database()
+        # Face AI là Read-Only consumer: TUYỆT ĐỐI KHÔNG xóa MongoDB users document!
+        # Việc xóa nhân sự do AIAttendanceWeb3 Admin Service đảm nhiệm.
+        print(f"[*] Đã xóa người dùng '{name}' khỏi bộ nhớ đệm RAM cục bộ của Face AI (không tác động MongoDB).")
         return True
 
     def register_user(
@@ -581,29 +647,99 @@ class FaceService:
             bottom = int(round(bottom * multiplier))
             left = int(round(left * multiplier))
 
+            meta_key = None
             name = "Unknown"
+            employee_code = ""
+            full_name = "Unknown"
             confidence = 0.0
             is_match = False
             min_distance = 1.0
+            second_best_distance = None
+            distance_margin = None
+            distance_ratio = None
+            is_ambiguous = False
 
-            # Bước 3: So khớp với cơ sở dữ liệu đã học đa góc độ
-            if len(self.known_encodings) > 0:
-                face_distances = face_recognition.face_distance(self.known_encodings, face_encoding)
-                best_match_index = int(np.argmin(face_distances))
-                min_distance = float(face_distances[best_match_index])
+            # Bước 3: So khớp với cơ sở dữ liệu đã học đa góc độ (Identity grouping & Ambiguity gate)
+            norm_query_enc = safe_l2_normalize(face_encoding)
+            if norm_query_enc is not None and len(self.known_encodings) > 0:
+                face_distances = face_recognition.face_distance(self.known_encodings, norm_query_enc)
 
-                # Tính tỷ lệ % khớp
-                confidence = distance_to_confidence_percentage(min_distance, tolerance)
+                # Gộp khoảng cách theo identity meta_key (lấy min distance cho mỗi identity)
+                # Nhiều sample cùng một identity không bị coi là đối thủ cạnh tranh của nhau
+                identity_min_distances: Dict[str, float] = {}
+                for idx, dist in enumerate(face_distances):
+                    id_key = self.known_names[idx]
+                    d_val = float(dist)
+                    if id_key not in identity_min_distances or d_val < identity_min_distances[id_key]:
+                        identity_min_distances[id_key] = d_val
 
-                if min_distance <= tolerance:
-                    name = self.known_names[best_match_index]
-                    is_match = True
+                # Sắp xếp các identity theo khoảng cách tăng dần
+                sorted_identities = sorted(identity_min_distances.items(), key=lambda x: x[1])
 
-            # Bước 4: Kiểm tra chống giả mạo khuôn mặt (MiniFASNet Liveness Detection)
-            is_real = True
-            liveness_score = 100.0
-            liveness_status = "REAL"
-            spoof_type = "real"
+                if sorted_identities:
+                    best_id, best_dist = sorted_identities[0]
+                    min_distance = best_dist
+                    confidence = distance_to_confidence_percentage(best_dist, tolerance)
+
+                    num_identities = len(sorted_identities)
+                    if num_identities >= 2:
+                        second_id, second_dist = sorted_identities[1]
+                        second_best_distance = round(second_dist, 4)
+
+                        # Kiểm tra tính hữu hạn và điều kiện toán học (fail-closed)
+                        if (
+                            np.isfinite(best_dist)
+                            and np.isfinite(second_dist)
+                            and second_dist > 1e-12
+                            and best_dist >= 0.0
+                        ):
+                            margin = second_dist - best_dist
+                            ratio = best_dist / second_dist
+                            distance_margin = round(margin, 4)
+                            distance_ratio = round(ratio, 4)
+
+                            # Thỏa mãn ambiguity gate: margin >= MIN_IDENTITY_DISTANCE_MARGIN VÀ ratio <= MAX_IDENTITY_DISTANCE_RATIO
+                            passes_ambiguity = (
+                                margin >= MIN_IDENTITY_DISTANCE_MARGIN
+                                and ratio <= MAX_IDENTITY_DISTANCE_RATIO
+                            )
+                        else:
+                            # Khoảng cách zero/nonfinite -> fail-closed
+                            passes_ambiguity = False
+                            distance_margin = None
+                            distance_ratio = None
+
+                        if not passes_ambiguity:
+                            is_ambiguous = True
+                    else:
+                        # Chỉ có 1 identity duy nhất trong DB: không có đối thủ
+                        passes_ambiguity = True
+
+                    # Match gate: best đạt confidence >= MIN_MATCH_CONFIDENCE VÀ vượt qua ambiguity gate (nếu >= 2 identities)
+                    if (
+                        np.isfinite(confidence)
+                        and confidence >= MIN_MATCH_CONFIDENCE
+                        and passes_ambiguity
+                    ):
+                        meta_key = best_id
+                        is_match = True
+                        meta = self.users_meta.get(meta_key) or {}
+                        employee_code = meta.get("employee_code", "")
+                        full_name = meta.get("full_name", "") or meta.get("name", meta_key)
+                        name = full_name
+                    else:
+                        # Ambiguous hoặc không đạt confidence: fail-closed, giấu danh tính tuyệt đối
+                        is_match = False
+                        meta_key = None
+                        name = "Unknown"
+                        employee_code = ""
+                        full_name = "Unknown"
+
+            # Bước 4: Kiểm tra chống giả mạo khuôn mặt (MiniFASNet Liveness Detection) - FAIL CLOSED
+            is_real = False
+            liveness_score = 0.0
+            liveness_status = "MODEL_UNAVAILABLE"
+            spoof_type = "unverified"
 
             if ANTI_SPOOF_ENABLED and self.anti_spoof_predictor is not None and self.anti_spoof_predictor.is_ready():
                 try:
@@ -612,18 +748,28 @@ class FaceService:
                         (top, right, bottom, left),
                         bbox_format="top_right_bottom_left"
                     )
-                    is_real = spoof_res.get("is_real", True)
-                    liveness_score = spoof_res.get("liveness_score", 100.0)
-                    liveness_status = spoof_res.get("liveness_status", "REAL")
-                    spoof_type = spoof_res.get("spoof_type", "real")
+                    is_real = bool(spoof_res.get("is_real", False))
+                    liveness_score = float(spoof_res.get("liveness_score", 0.0))
+                    liveness_status = str(spoof_res.get("liveness_status", "SPOOF"))
+                    spoof_type = str(spoof_res.get("spoof_type", "unknown"))
                 except Exception as e:
                     print(f"[!] Lỗi khi chạy Anti-Spoofing: {e}")
+                    is_real = False
+                    liveness_score = 0.0
+                    liveness_status = "ERROR"
+                    spoof_type = "error"
 
             results.append({
                 "name": name,
+                "employee_code": employee_code,  # từ users_meta qua mongo_id — BFF dùng để tra User
+                "full_name": full_name,           # tên đầy đủ từ metadata, không dùng làm khóa định danh
                 "confidence": confidence,
                 "is_match": is_match,
                 "distance": round(min_distance, 3),
+                "second_best_distance": second_best_distance,
+                "distance_margin": distance_margin,
+                "distance_ratio": distance_ratio,
+                "is_ambiguous": is_ambiguous,
                 "box": (top, right, bottom, left),
                 "is_real": is_real,
                 "liveness_score": liveness_score,

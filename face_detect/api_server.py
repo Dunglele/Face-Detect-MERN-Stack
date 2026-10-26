@@ -29,8 +29,13 @@ sys.path.append(str(Path(__file__).resolve().parent))
 import importlib
 import config
 from face_service import FaceService
-from config import TOLERANCE_THRESHOLD, FRAME_SCALE
-from app import log_attendance
+from config import (
+    TOLERANCE_THRESHOLD,
+    MIN_MATCH_CONFIDENCE,
+    MIN_IDENTITY_DISTANCE_MARGIN,
+    MAX_IDENTITY_DISTANCE_RATIO,
+    FRAME_SCALE,
+)
 
 def get_current_tolerance() -> float:
     """Đọc trực tiếp ngưỡng từ config.py (hỗ trợ hot-reload khi chỉnh config.py)"""
@@ -85,7 +90,7 @@ def root():
         "mongo_connected": face_service.mongo_connected,
         "database": face_service.db.name if face_service.db is not None else "local encodings.pkl",
         "users_count": len(face_service.users_meta),
-        "users": list(face_service.users_meta.keys()),
+        "users": [m.get("full_name") or m.get("name") or k for k, m in face_service.users_meta.items()],
         "status": "ready"
     }
 
@@ -101,8 +106,12 @@ def health():
         "anti_spoof_active": face_service.anti_spoof_predictor is not None and face_service.anti_spoof_predictor.is_ready(),
         "mongo_connected": face_service.mongo_connected,
         "database": face_service.db.name if face_service.db is not None else "local encodings.pkl",
-        "enrolled_users": list(face_service.users_meta.keys()),
-        "total_encodings": len(face_service.known_encodings)
+        "enrolled_users": [m.get("full_name") or m.get("name") or k for k, m in face_service.users_meta.items()],
+        "total_encodings": len(face_service.known_encodings),
+        "tolerance_threshold": TOLERANCE_THRESHOLD,
+        "min_match_confidence_threshold": MIN_MATCH_CONFIDENCE,
+        "min_identity_distance_margin": MIN_IDENTITY_DISTANCE_MARGIN,
+        "max_identity_distance_ratio": MAX_IDENTITY_DISTANCE_RATIO
     }
 
 
@@ -120,22 +129,38 @@ def get_users():
 @app.delete("/api/ai/users/{name}")
 @app.delete("/api/users/{name}")
 def delete_user_endpoint(name: str):
-    """Xóa nhân sự và vector khuôn mặt khỏi AI Engine và MongoDB"""
-    decoded_name = name.strip()
-    deleted = face_service.delete_user(decoded_name)
-    return {
-        "success": deleted,
-        "name": decoded_name,
-        "enrolled_users": list(face_service.users_meta.keys()),
-        "total_encodings": len(face_service.known_encodings),
-        "message": f"Đã xóa nhân sự '{decoded_name}' thành công" if deleted else f"Không tìm thấy nhân sự '{decoded_name}'"
-    }
+    """[410 GONE] Quản trị nhân sự và vector khuôn mặt đã chuyển sang AIAttendanceWeb3 Admin Service (Port 4000)"""
+    raise HTTPException(
+        status_code=410,
+        detail="Chức năng quản trị người dùng thuộc quyền sở hữu của AIAttendanceWeb3 Admin Service (Port 4000). Face AI là read-only."
+    )
 
 
+def _verify_internal_refresh_token(request: Request):
+    expected = os.environ.get("FACE_AI_INTERNAL_TOKEN") or os.environ.get("INTERNAL_REFRESH_TOKEN")
+    if not expected:
+        raise HTTPException(
+            status_code=503,
+            detail="CONFIG_MISSING: FACE_AI_INTERNAL_TOKEN chưa được cấu hình trên Face AI Service (fail-closed, không fallback không an toàn)."
+        )
+    token = request.headers.get("x-internal-token") or request.headers.get("x-service-key")
+    if not token:
+        auth = request.headers.get("authorization", "")
+        if auth.startswith("Bearer "):
+            token = auth[7:].strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="Thiếu internal token xác thực để gọi refresh endpoint")
+    if token != expected:
+        raise HTTPException(status_code=403, detail="Internal token không hợp lệ")
+
+
+@app.post("/api/ai/refresh")
+@app.post("/refresh")
 @app.post("/api/ai/sync-mongo")
 @app.post("/sync-mongo")
-def sync_mongo():
-    """Tải lại toàn bộ vector đặc trưng từ MongoDB vào RAM của AI service"""
+def sync_mongo(request: Request):
+    """Tải lại toàn bộ vector đặc trưng từ MongoDB vào RAM của AI service (Read-only refresh, không ghi DB)"""
+    _verify_internal_refresh_token(request)
     success = face_service.load_database_from_mongo()
     return {
         "success": success,
@@ -143,7 +168,7 @@ def sync_mongo():
         "users_count": len(face_service.users_meta),
         "users": list(face_service.users_meta.keys()),
         "total_encodings": len(face_service.known_encodings),
-        "message": "Đã đồng bộ vector từ MongoDB thành công" if success else "Không thể đồng bộ từ MongoDB"
+        "message": "Đã làm mới (refresh) bộ đệm vector từ MongoDB thành công" if success else "Không thể đồng bộ từ MongoDB"
     }
 
 
@@ -151,79 +176,13 @@ def sync_mongo():
 @app.post("/register-face")
 async def register_face(req: RegisterFaceRequest):
     """
-    Đăng ký khuôn mặt mới từ danh sách ảnh base64:
-    1. Dò tìm khuôn mặt bằng YOLOv11 + dlib
-    2. Trích xuất vector 128-d ResNet
-    3. Lưu trực tiếp vào MongoDB collection 'users'
-    4. Nạp tức thì vào RAM để nhận diện ngay mà không cần restart server
+    [410 GONE] Đăng ký khuôn mặt đã chuyển sang AIAttendanceWeb3 Admin Service (Port 8000 /api/v1/face/enroll).
+    Face AI là service chuyên biệt cho verification & anti-spoofing, không thực hiện ghi DB / enrollment.
     """
-    clean_name = req.name.strip()
-    if not clean_name:
-        raise HTTPException(status_code=400, detail="Vui lòng cung cấp họ và tên người dùng!")
-
-    if not req.images or len(req.images) == 0:
-        raise HTTPException(status_code=400, detail="Vui lòng gửi ít nhất 1 ảnh khuôn mặt!")
-
-    extracted_encodings = []
-    saved_images = []
-
-    import face_recognition
-
-    for idx, img_b64 in enumerate(req.images):
-        if "," in img_b64:
-            img_b64 = img_b64.split(",", 1)[1]
-        try:
-            img_bytes = base64.b64decode(img_b64)
-            nparr = np.frombuffer(img_bytes, np.uint8)
-            frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            if frame is None:
-                continue
-
-            # Phát hiện mặt bằng YOLO
-            boxes = face_service.detect_face_boxes(frame)
-            if not boxes:
-                # Thử phóng to tìm mặt
-                rgb_test = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                boxes = face_recognition.face_locations(rgb_test, number_of_times_to_upsample=1, model="hog")
-
-            if boxes:
-                # Lấy khuôn mặt lớn nhất / rõ nhất
-                best_box = boxes[0]
-                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                encs = face_recognition.face_encodings(rgb_frame, [best_box])
-                if encs:
-                    extracted_encodings.append(encs[0])
-                    saved_images.append(frame)
-        except Exception as e:
-            print(f"[!] Lỗi khi xử lý ảnh mẫu {idx}: {e}")
-
-    if len(extracted_encodings) == 0:
-        raise HTTPException(
-            status_code=400,
-            detail="Không trích xuất được vector từ các ảnh gửi lên! Vui lòng chụp rõ mặt, đủ ánh sáng và nhìn thẳng camera."
-        )
-
-    # Lưu vào MongoDB và cập nhật RAM
-    success = face_service.register_user_mongo(
-        name=clean_name,
-        encodings=extracted_encodings,
-        sample_images=saved_images,
-        employee_id=req.employeeId,
-        department=req.department,
-        email=req.email
+    raise HTTPException(
+        status_code=410,
+        detail="Chức năng đăng ký khuôn mặt đã chuyển sang AIAttendanceWeb3 Admin Service (Port 8000 /api/v1/face/enroll). Face AI chỉ cung cấp xác thực (verify) và liveness."
     )
-
-    if not success:
-        raise HTTPException(status_code=500, detail="Không thể lưu trữ vector vào cơ sở dữ liệu!")
-
-    return {
-        "success": True,
-        "name": clean_name,
-        "samples_enrolled": len(extracted_encodings),
-        "total_images_processed": len(req.images),
-        "mongo_saved": face_service.mongo_connected,
-        "message": f"Đã đăng ký thành công {len(extracted_encodings)} vector đặc trưng cho '{clean_name}' vào MongoDB!"
-    }
 
 
 def _process_image_array(frame: np.ndarray, tolerance: float = TOLERANCE_THRESHOLD, auto_checkin: bool = False) -> Dict[str, Any]:
@@ -255,13 +214,19 @@ def _process_image_array(frame: np.ndarray, tolerance: float = TOLERANCE_THRESHO
 
         face_data = {
             "name": item["name"],
+            "employee_code": item.get("employee_code", ""),  # từ users_meta — định danh chính xác
+            "full_name": item.get("full_name", item["name"]),  # tên đầy đủ từ metadata
             "confidence": item["confidence"],
-            "is_match": item["is_match"],
+            "is_match": bool(item.get("is_match", False)),
             "distance": item["distance"],
-            "is_real": item.get("is_real", True),
-            "liveness_score": item.get("liveness_score", 100.0),
-            "liveness_status": item.get("liveness_status", "REAL"),
-            "spoof_type": item.get("spoof_type", "real"),
+            "second_best_distance": item.get("second_best_distance"),
+            "distance_margin": item.get("distance_margin"),
+            "distance_ratio": item.get("distance_ratio"),
+            "is_ambiguous": bool(item.get("is_ambiguous", False)),
+            "is_real": bool(item.get("is_real", False)),
+            "liveness_score": float(item.get("liveness_score", 0.0)),
+            "liveness_status": str(item.get("liveness_status", "UNKNOWN")),
+            "spoof_type": str(item.get("spoof_type", "unknown")),
             "bbox": {
                 "top": int(top),
                 "right": int(right),
@@ -279,18 +244,17 @@ def _process_image_array(frame: np.ndarray, tolerance: float = TOLERANCE_THRESHO
         }
         formatted_faces.append(face_data)
 
-        if item["is_match"] and (top_match is None or item["confidence"] > top_match["confidence"]):
+        # CHỈ chọn top_match khi is_match là True
+        if item.get("is_match") and (top_match is None or item["confidence"] > top_match["confidence"]):
             top_match = face_data
 
-    # Tự động ghi log điểm danh: CHỈ CHO PHÉP KHI ĐƯỢC XÁC THỰC LÀ NGƯỜI THẬT (is_real == True)
+    # Face AI chỉ phụ trách nhận diện & xác thực người thật (verify/liveness), KHÔNG tự tiện ghi file CSV điểm danh.
+    # Toàn bộ việc ghi nhận chấm công do Face BFF (Port 5000) quản lý và ghi vào MongoDB AttendanceRecord.
     spoof_alert = False
-    if auto_checkin and top_match and top_match["is_match"]:
-        if top_match.get("is_real", True):
-            time_str = time.strftime("%Y-%m-%d %H:%M:%S")
-            log_attendance(top_match["name"], top_match["confidence"], time_str, frame)
-        else:
+    if top_match and top_match.get("is_match"):
+        if not top_match.get("is_real", False):
             spoof_alert = True
-            print(f"[!] CẢNH BÁO: Phát hiện giả mạo khuôn mặt cho '{top_match['name']}' (Liveness: {top_match.get('liveness_score')}%)! Từ chối chấm công.")
+            print(f"[!] CẢNH BÁO: Phát hiện giả mạo khuôn mặt cho '{top_match.get('name')}' (Liveness: {top_match.get('liveness_score')}%)! Từ chối.")
 
     return {
         "success": True,
@@ -300,6 +264,9 @@ def _process_image_array(frame: np.ndarray, tolerance: float = TOLERANCE_THRESHO
         "spoof_alert": spoof_alert,
         "anti_spoof_active": face_service.anti_spoof_predictor is not None and face_service.anti_spoof_predictor.is_ready(),
         "tolerance_threshold": tolerance,
+        "min_match_confidence_threshold": MIN_MATCH_CONFIDENCE,
+        "min_identity_distance_margin": MIN_IDENTITY_DISTANCE_MARGIN,
+        "max_identity_distance_ratio": MAX_IDENTITY_DISTANCE_RATIO,
         "image_size": {"width": w, "height": h},
         "inference_time_ms": inference_ms,
         "model_used": "YOLOv11 Face + dlib ResNet + MiniFASNet" if face_service.yolo_model is not None else "dlib HOG + ResNet"
@@ -346,7 +313,12 @@ async def liveness_check(req: LivenessCheckRequest):
                 bbox_format="top_right_bottom_left"
             )
         else:
-            res = {"is_real": True, "liveness_score": 100.0, "liveness_status": "REAL", "spoof_type": "real"}
+            res = {
+                "is_real": False,
+                "liveness_score": 0.0,
+                "liveness_status": "MODEL_UNAVAILABLE",
+                "spoof_type": "model_missing"
+            }
 
         results.append({
             "box": {"top": int(top), "right": int(right), "bottom": int(bottom), "left": int(left)},
@@ -396,5 +368,6 @@ async def predict_binary(request: Request, auto_checkin: bool = False):
 
 if __name__ == "__main__":
     import uvicorn
-    print("[*] Đang khởi chạy Face Recognition API Server trên cổng 8000...")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.environ.get("PORT", 8001))
+    print(f"[*] Đang khởi chạy Face Recognition API Server trên cổng {port}...")
+    uvicorn.run(app, host="0.0.0.0", port=port)

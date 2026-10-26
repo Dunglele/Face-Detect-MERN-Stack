@@ -57,24 +57,36 @@ export const getUsers = async (req, res) => {
       }
     }
 
-    // 4. Chuẩn hóa (Normalize) các trường dữ liệu để AdminPage hiển thị an toàn tuyệt đối
+    // 4. Chuẩn hóa (Normalize) các trường dữ liệu tương thích cả schema mới và cũ
     const normalizedUsers = (users || []).map((u, idx) => {
-      const name = u.name || u.username || u.fullname || u.displayName || `Nhân viên #${idx + 1}`;
-      const employeeId = u.employeeId || u.empId || u.code || (u._id ? String(u._id).slice(-6) : `EMP-${idx + 1}`);
-      const department = u.department || u.dept || u.role || 'AI & Engineering';
-      const isFaceEnrolled = u.isFaceEnrolled !== undefined
-        ? Boolean(u.isFaceEnrolled)
-        : Boolean(u.faceDescriptors?.length || u.embeddings?.length || (u.faceSampleCount && u.faceSampleCount > 0));
-      const faceSampleCount = u.faceSampleCount || u.faceDescriptors?.length || (isFaceEnrolled ? 20 : 0);
+      const fullName = u.fullName || u.name || u.username || u.fullname || u.displayName || `Nhân viên #${idx + 1}`;
+      const employeeCode = u.employeeCode || u.employeeId || u.empId || u.code || (u._id ? String(u._id).slice(-6) : `NV${String(idx + 1).padStart(3, '0')}`);
+      const department = u.department?.name || u.department || u.dept || u.position || 'AI & Engineering';
+
+      const isFaceEnrolled = u.face?.enrolled !== undefined
+        ? Boolean(u.face.enrolled)
+        : Boolean(u.isFaceEnrolled || u.faceDescriptors?.length || u.embeddings?.length || (u.faceSampleCount && u.faceSampleCount > 0));
+
+      const faceSampleCount = u.face?.sampleCount !== undefined
+        ? u.face.sampleCount
+        : (u.faceSampleCount || u.faceDescriptors?.length || (isFaceEnrolled ? 20 : 0));
 
       return {
         ...u,
         _id: u._id || `usr_${idx + 1}`,
-        name,
-        employeeId,
+        fullName,
+        name: fullName, // tương thích frontend cũ
+        employeeCode,
+        employeeId: employeeCode, // tương thích frontend cũ
         department,
         isFaceEnrolled,
         faceSampleCount,
+        face: {
+          enrolled: isFaceEnrolled,
+          sampleCount: faceSampleCount,
+          embedding: u.face?.embedding || (u.faceDescriptors && u.faceDescriptors[0]) || undefined,
+          modelVersion: u.face?.modelVersion || null,
+        },
       };
     });
 
@@ -82,8 +94,8 @@ export const getUsers = async (req, res) => {
       success: true,
       count: normalizedUsers.length,
       source,
-      database: 'test',
-      collection: 'user',
+      database: 'klcn134_attendance',
+      collection: 'users',
       mongoConnected,
       data: normalizedUsers,
     });
@@ -92,122 +104,39 @@ export const getUsers = async (req, res) => {
   }
 };
 
-// Create new user in test.user
+// Helper loại bỏ dấu tiếng Việt để tạo searchName
+function toSearchName(text) {
+  if (!text) return '';
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'd')
+    .trim();
+}
+
+// [410 GONE] Create new user — Thao tác tạo nhân sự thuộc quyền sở hữu của AIAttendanceWeb3
 export const createUser = async (req, res) => {
-  try {
-    const { name, employeeId, email, department, isFaceEnrolled, faceSampleCount, faceDescriptors } = req.body;
-    const mongoConnected = mongoose.connection.readyState === 1;
-
-    if (mongoConnected) {
-      const user = await User.create({
-        name,
-        employeeId: employeeId || `EMP-${Date.now().toString().slice(-4)}`,
-        email: email || `${name.toLowerCase().replace(/\s+/g, '')}@company.com`,
-        department: department || 'AI & Engineering',
-        isFaceEnrolled: isFaceEnrolled || false,
-        faceSampleCount: faceSampleCount || 0,
-        faceDescriptors: faceDescriptors || [],
-      });
-      return res.status(201).json({ success: true, data: user, source: 'MongoDB Atlas (test.user)' });
-    }
-
-    // Fallback: nếu MongoDB tạm thời offline do IP whitelist
-    const fallbackUser = {
-      _id: `temp_${Date.now()}`,
-      name,
-      employeeId: employeeId || `EMP-${Date.now().toString().slice(-4)}`,
-      email: email || `${name.toLowerCase().replace(/\s+/g, '')}@company.com`,
-      department: department || 'AI & Engineering',
-      isFaceEnrolled: Boolean(isFaceEnrolled),
-      faceSampleCount: faceSampleCount || 0,
-      createdAt: new Date().toISOString(),
-      source: 'Local Memory (Chờ đồng bộ Atlas)',
-    };
-    res.status(201).json({ success: true, data: fallbackUser, warning: 'Lưu tạm thời (MongoDB đang chờ kết nối)' });
-  } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
-  }
+  return res.status(410).json({
+    success: false,
+    message: 'Chức năng tạo nhân sự mới thuộc quyền sở hữu của AIAttendanceWeb3 Admin Service (Port 4000: POST /api/users). Employee Service chỉ cung cấp truy vấn danh bạ (read-only).',
+  });
 };
 
-// Update user face enrollment status
+// [410 GONE] Update user face enrollment status — Thao tác đăng ký/cập nhật khuôn mặt thuộc AIAttendanceWeb3
 export const updateFaceEnrollment = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { isFaceEnrolled, faceSampleCount, faceDescriptors } = req.body;
-
-    const updateFields = { isFaceEnrolled, faceSampleCount };
-    if (faceDescriptors) {
-      updateFields.faceDescriptors = faceDescriptors;
-    }
-
-    let user = null;
-    if (mongoose.connection.readyState === 1) {
-      user = await User.findByIdAndUpdate(
-        id,
-        updateFields,
-        { new: true }
-      );
-    }
-
-    if (!user) {
-      return res.status(200).json({
-        success: true,
-        data: { _id: id, isFaceEnrolled, faceSampleCount },
-        message: 'Đã cập nhật trạng thái khuôn mặt'
-      });
-    }
-
-    res.status(200).json({ success: true, data: user });
-  } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
-  }
+  return res.status(410).json({
+    success: false,
+    message: 'Chức năng đăng ký/cập nhật khuôn mặt thuộc quyền sở hữu của AIAttendanceWeb3 Admin Service (Port 8000: POST /api/v1/face/enroll). Employee Service không ghi đè dữ liệu sinh trắc học.',
+  });
 };
 
-// Delete user
+// [410 GONE] Delete user — Thao tác xóa nhân sự thuộc quyền sở hữu của AIAttendanceWeb3
 export const deleteUser = async (req, res) => {
-  try {
-    const { id } = req.params;
-    let deletedUser = null;
-
-    if (mongoose.connection.readyState === 1) {
-      try {
-        deletedUser = await User.findByIdAndDelete(id);
-      } catch {
-        // Fallback theo name nếu id dạng chuỗi thường
-        deletedUser = await User.findOneAndDelete({ $or: [{ _id: id }, { name: id }] });
-      }
-
-      // Kiểm tra thêm collection 'users' nếu chưa thấy trong 'user'
-      if (!deletedUser) {
-        try {
-          const altColl = mongoose.connection.db.collection('users');
-          const resDel = await altColl.findOneAndDelete({ $or: [{ _id: id }, { name: id }] });
-          if (resDel && resDel.value) deletedUser = resDel.value;
-        } catch {
-          // ignore
-        }
-      }
-    }
-
-    const userName = deletedUser ? deletedUser.name : id;
-
-    // Đồng bộ xóa vector khỏi Python AI Engine nếu có chạy
-    const PYTHON_AI_URL = process.env.PYTHON_SERVICE_URL || 'http://localhost:8000';
-    try {
-      await fetch(`${PYTHON_AI_URL}/api/ai/users/${encodeURIComponent(userName)}`, {
-        method: 'DELETE',
-      });
-    } catch {
-      // Bỏ qua nếu Python AI server chưa khởi động
-    }
-
-    res.status(200).json({
-      success: true,
-      message: `Đã xóa nhân viên ${userName} thành công`,
-      data: deletedUser || { _id: id, name: userName },
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
+  return res.status(410).json({
+    success: false,
+    message: 'Chức năng xóa nhân sự thuộc quyền sở hữu của AIAttendanceWeb3 Admin Service (Port 4000: DELETE /api/users/:id). Employee Service là read-only đối với người dùng.',
+  });
 };
 
