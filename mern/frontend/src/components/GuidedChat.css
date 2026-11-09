@@ -1,0 +1,249 @@
+/* Guided Chat Styles - Swiss Minimalist Black & White */
+
+.guided-chat {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+  font-family: var(--font-body, -apple-system, BlinkMacSystemFont, sans-serif);
+  font-size: 13px;
+  color: #1a1a1a;
+  background-color: #ffffff;
+}
+
+.guided-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  color: #373a46;
+  font-weight: 600;
+  font-size: 12px;
+  background-color: #fcfcfc;
+}
+
+.guided-toolbar > div {
+  display: flex;
+  gap: 6px;
+}
+
+.guided-toolbar button {
+  font-size: 11px;
+  padding: 5px 9px;
+  color: #1a1a1a;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: var(--rounded-pill, 9999px);
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.guided-toolbar button:hover:not(:disabled) {
+  border-color: #1a1a1a;
+  background-color: #f7f7f8;
+}
+
+.guided-toolbar button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.guided-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  background: #ffffff;
+}
+
+.guided-bubble {
+  max-width: 92%;
+  min-width: 0;
+  padding: 10px 14px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 18px;
+  background: #f7f7f8;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.guided-bubble p {
+  margin: 0;
+}
+
+.guided-bubble strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #1a1a1a;
+}
+
+.guided-user {
+  align-self: flex-end;
+  color: #ffffff;
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+  border-bottom-right-radius: 4px;
+}
+
+.guided-user strong {
+  color: #ffffff;
+}
+
+.guided-error {
+  color: #991b1b;
+  background: #fef2f2;
+  border: 1px solid #fee2e2;
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+
+.guided-notice {
+  color: #6e7180;
+  font-style: italic;
+  padding: 6px;
+  font-size: 12px;
+}
+
+.guided-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.guided-quick_replies .guided-options {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.guided-quick_replies .guided-options button {
+  width: 100%;
+  text-align: left;
+}
+
+.guided-options button,
+.guided-form button,
+.guided-composer button,
+.guided-error button {
+  border: 1px solid #1a1a1a;
+  background: #1a1a1a;
+  color: #ffffff;
+  border-radius: var(--rounded-pill, 9999px);
+  padding: 7px 12px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.guided-options button:hover:not(:disabled),
+.guided-form button:hover:not(:disabled),
+.guided-composer button:hover:not(:disabled) {
+  background: #2a2a2a;
+}
+
+.guided-options button:disabled,
+.guided-form button:disabled,
+.guided-composer button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.guided-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.guided-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.guided-field input,
+.guided-field select,
+.guided-field textarea,
+.guided-composer input {
+  min-width: 0;
+  width: 100%;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 12px;
+  background: #ffffff;
+  color: #1a1a1a;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 13px;
+  transition: border-color 0.15s ease;
+}
+
+.guided-field input:focus,
+.guided-field select:focus,
+.guided-field textarea:focus,
+.guided-composer input:focus {
+  outline: none;
+  border-color: #1a1a1a;
+}
+
+.guided-field textarea {
+  resize: vertical;
+}
+
+.guided-data-list {
+  margin: 8px 0 0;
+  padding-left: 16px;
+}
+
+.guided-data-list div {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.guided-data-list dt {
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.guided-data-list dd {
+  margin: 0;
+  color: #373a46;
+}
+
+.guided-composer {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  background-color: #fcfcfc;
+}
+
+.guided-composer input {
+  flex: 1;
+  border-radius: var(--rounded-pill, 9999px);
+  padding: 8px 14px;
+}
+
+.guided-chat button:focus-visible,
+.guided-chat input:focus-visible,
+.guided-chat select:focus-visible,
+.guided-chat textarea:focus-visible {
+  outline: 2px solid #1a1a1a;
+  outline-offset: 1px;
+}
+
+@media (max-width: 480px) {
+  .guided-toolbar {
+    align-items: flex-start;
+  }
+}

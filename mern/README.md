@@ -31,7 +31,7 @@ mern/
 │   │   │   └── Navbar.jsx    # Thanh điều hướng Glassmorphic & trạng thái API
 │   │   ├── pages/
 │   │   │   ├── LandingPage.jsx # [Trang chủ /] Giới thiệu dự án & công nghệ AI
-│   │   │   ├── DemoPage.jsx    # [Trang /demo] Thử nghiệm mô hình AI (Webcam & Upload)
+│   │   │   ├── DemoPage.jsx    # [Trang /demo] Thử nghiệm mô hình AI (Webcam trực tiếp)
 │   │   │   └── AdminPage.jsx   # [Trang /admin] Quản trị nhân sự & nhật ký điểm danh
 │   │   ├── App.jsx           # Cấu hình Router (/, /demo, /admin)
 │   │   ├── index.css         # Hệ thống phong cách Glassmorphism (Kính mờ cao cấp)
@@ -126,7 +126,6 @@ npm run dev
 
 2. **`http://localhost:5173/demo` (Trang Thử Nghiệm Mô Hình AI)**:
    - **Chế độ Webcam Live**: Mở camera trực tiếp trên trình duyệt, quét laser và hiển thị Bounding Box nhận diện.
-   - **Chế độ Tải ảnh**: Kéo thả ảnh khuôn mặt để kiểm tra phân tích độ nhạy.
    - Hiển thị đầy đủ Telemetry: Danh tính phát hiện, độ trùng khớp %, thời gian suy luận (ms), góc nghiêng khuôn mặt.
    - Nút **"Ghi nhận điểm danh vào CSDL"** cho phép gửi dữ liệu trực tiếp vào MongoDB qua API backend.
 

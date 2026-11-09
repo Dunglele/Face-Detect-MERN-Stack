@@ -1,0 +1,238 @@
+/* App Navbar - Swiss Minimalist Black & White */
+
+.app-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background-color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+  padding: 12px 24px;
+  transition: all 0.2s ease;
+}
+
+.app-navbar-inner {
+  max-width: var(--max-width, 1280px);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.app-navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+}
+
+.app-navbar-brand-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background-color: var(--text-primary, #1a1a1a);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
+}
+
+.app-navbar-brand-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text-primary, #1a1a1a);
+}
+
+.app-navbar-brand-tag {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--rounded-pill, 9999px);
+  background-color: var(--bg-neutral, #fcfcfc);
+  border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+  color: var(--text-muted, #6e7180);
+}
+
+.app-navbar-links {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background-color: var(--bg-neutral, #fcfcfc);
+  padding: 4px;
+  border-radius: var(--rounded-pill, 9999px);
+  border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+}
+
+.app-navbar-links a {
+  padding: 8px 18px;
+  border-radius: var(--rounded-pill, 9999px);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary, #373a46);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.app-navbar-links a.active {
+  background-color: var(--text-primary, #1a1a1a);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.app-navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-navbar-user-badge {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: var(--rounded-pill, 9999px);
+  background-color: var(--bg-neutral, #fcfcfc);
+  border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+  color: var(--text-primary, #1a1a1a);
+}
+
+.app-navbar-btn-logout {
+  padding: 6px 12px;
+  border-radius: var(--rounded-pill, 9999px);
+  border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+  background-color: #ffffff;
+  color: var(--text-muted, #6e7180);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.app-navbar-btn-logout:hover {
+  background-color: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+.app-navbar-manager-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--rounded-pill, 9999px);
+  border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+  background-color: #ffffff;
+  color: var(--text-secondary, #373a46);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.app-navbar-manager-link:hover {
+  border-color: var(--border-hover, rgba(0, 0, 0, 0.16));
+  background-color: var(--bg-neutral, #fcfcfc);
+  color: var(--text-primary, #1a1a1a);
+}
+
+/* Scroll Container indicator on Tablets & Mobile */
+.app-navbar-scroll-wrap {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+@media (max-width: 980px) {
+  .app-navbar-inner {
+    flex-wrap: wrap;
+  }
+
+  .app-navbar-scroll-wrap {
+    order: 3;
+    width: 100%;
+    flex: 0 0 100%;
+    position: relative;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+  }
+
+  /* Fade indicator on right edge to clearly show scrollability */
+  .app-navbar-scroll-wrap::after {
+    content: '';
+    position: sticky;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 24px;
+    background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.95));
+    pointer-events: none;
+    flex-shrink: 0;
+  }
+
+  .app-navbar-links {
+    width: max-content;
+    border-radius: var(--rounded-pill, 9999px);
+  }
+
+  .app-navbar-actions {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-navbar {
+    padding: 8px 12px;
+  }
+
+  .app-navbar-inner {
+    gap: 8px;
+  }
+
+  .app-navbar-brand-logo {
+    width: 32px;
+    height: 32px;
+  }
+
+  .app-navbar-brand-title {
+    font-size: 0.95rem;
+  }
+
+  .app-navbar-brand-tag,
+  .app-navbar-user-badge {
+    display: none;
+  }
+
+  .app-navbar-actions {
+    gap: 6px;
+  }
+
+  .app-navbar-manager-link {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+  }
+
+  .app-navbar-links {
+    padding: 3px;
+    gap: 2px;
+  }
+
+  .app-navbar-links a {
+    padding: 6px 12px;
+    font-size: 0.8125rem;
+  }
+}

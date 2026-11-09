@@ -1,39 +1,45 @@
 :root {
-  /* Minimalist White Swiss SaaS Palette */
+  /* Swiss Minimalist White Palette (design.md) */
   --bg-primary: #ffffff;
   --bg-surface: #ffffff;
   --bg-neutral: #fcfcfc;
   --bg-muted: #f7f7f8;
   --bg-subtle: #f0f0f2;
-  
+  --bg-overlay: rgba(26, 26, 26, 0.4);
+
   --text-primary: #1a1a1a;
   --text-secondary: #373a46;
   --text-muted: #6e7180;
   --text-dim: #9295a3;
   --text-white: #ffffff;
-  
+
   --border-subtle: rgba(0, 0, 0, 0.08);
   --border-card: rgba(0, 0, 0, 0.06);
   --border-hover: rgba(0, 0, 0, 0.16);
-  
+  --border-focus: #1a1a1a;
+
+  /* Shadows (design.md: soft shadows <= 0 2px 8px rgba(0,0,0,0.08)) */
   --shadow-input: 0 4px 20px rgba(194, 194, 194, 0.25);
-  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.05);
-  --shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.04);
+  --shadow-card-hover: 0 6px 20px rgba(0, 0, 0, 0.07);
   --shadow-btn-dark: 0 4px 14px rgba(29, 29, 29, 0.24);
   --shadow-btn-inner: inset 0 1px 0 rgba(255, 255, 255, 0.18), inset 0 -1px 0 rgba(0, 0, 0, 0.2);
-  
-  /* Radii Tokens from design.md */
+
+  /* Radius Tokens (design.md) */
   --rounded-sm: 40px;
   --rounded-md: 80px;
   --rounded-lg: 120px;
   --rounded-card: 32px;
   --rounded-pill: 9999px;
-  
-  /* Typography Tokens */
-  --font-display: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-body: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* Typography */
+  --font-display: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-body: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-accent: 'Instrument Serif', Georgia, serif;
   --font-mono: 'JetBrains Mono', monospace;
+
+  /* Layout */
+  --max-width: 1280px;
 }
 
 * {
@@ -82,40 +88,7 @@ h1, h2, h3, h4, h5, h6 {
   letter-spacing: -0.01em;
 }
 
-/* Minimalist White Hero Background & Inverted Video */
-.hero-video-container {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 640px;
-  overflow: hidden;
-  z-index: 0;
-  pointer-events: none;
-}
-
-.hero-video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transform: scaleY(-1);
-  filter: grayscale(25%) contrast(105%) brightness(102%);
-  opacity: 0.65;
-}
-
-.hero-gradient-overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to bottom,
-    rgba(255, 255, 255, 0) 26.4%,
-    rgba(255, 255, 255, 0.75) 48%,
-    #ffffff 66.9%
-  );
-  z-index: 1;
-}
-
-/* Minimalist Buttons */
+/* Buttons (Pill, multi-layer shadow as design.md) */
 .btn-primary {
   background-color: var(--text-primary);
   color: #ffffff;
@@ -132,7 +105,7 @@ h1, h2, h3, h4, h5, h6 {
   cursor: pointer;
   text-decoration: none;
   box-shadow: var(--shadow-btn-dark), var(--shadow-btn-inner);
-  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease;
 }
 
 .btn-primary:hover {
@@ -143,6 +116,12 @@ h1, h2, h3, h4, h5, h6 {
 
 .btn-primary:active {
   transform: translateY(0);
+}
+
+.btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .btn-outline {
@@ -168,42 +147,15 @@ h1, h2, h3, h4, h5, h6 {
   transform: translateY(-1px);
 }
 
-/* Input pill in Hero */
-.input-hero-pill {
-  display: flex;
-  align-items: center;
-  background: #ffffff;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--rounded-sm);
-  padding: 6px 8px 6px 20px;
-  box-shadow: var(--shadow-input);
-  transition: all 0.2s ease;
-  max-width: 520px;
-  width: 100%;
-}
-
-.input-hero-pill:focus-within {
-  border-color: var(--text-primary);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
-}
-
-.input-hero-pill input {
-  border: none;
-  background: transparent;
-  outline: none;
-  font-family: var(--font-body);
-  font-size: 0.95rem;
-  color: var(--text-primary);
-  width: 100%;
-}
-
-.input-hero-pill input::placeholder {
-  color: var(--text-dim);
+.btn-outline:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
 }
 
 /* Minimalist Cards */
 .minimal-card {
-  background: #ffffff;
+  background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--rounded-card);
   box-shadow: var(--shadow-card);
@@ -289,33 +241,25 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-/* Laser Scanner for Demo */
-.minimal-scanner-laser {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: #1a1a1a;
-  box-shadow: 0 0 10px rgba(26, 26, 26, 0.4);
-  animation: minimalScanMove 2.6s ease-in-out infinite alternate;
-  pointer-events: none;
-  z-index: 10;
+/* Accessibility: Focus visible and reduced motion */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
 }
 
-@keyframes minimalScanMove {
-  0% { top: 6%; opacity: 0.2; }
-  50% { opacity: 0.9; }
-  100% { top: 94%; opacity: 0.2; }
-}
-
-/* Target bounding box */
-.minimal-face-box {
-  position: absolute;
-  border: 2px solid #1a1a1a;
-  border-radius: 12px;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8);
-  pointer-events: none;
-  transition: all 0.2s ease;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Custom Minimalist Scrollbars */

@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import {
   Camera,
   VideoOff,
-  Upload,
   CheckCircle2,
   AlertTriangle,
   UserCheck,
@@ -17,12 +16,13 @@ import {
   Activity,
   Database,
   Lock,
+  Fingerprint,
 } from 'lucide-react';
 
 const API_BASE = '/api';
 
 export default function DemoPage() {
-  const [activeMode, setActiveMode] = useState('webcam'); // 'webcam' | 'upload' | 'enroll'
+  const [activeMode, setActiveMode] = useState('webcam'); // 'webcam' | 'enroll'
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [cameraError, setCameraError] = useState('');
@@ -33,7 +33,6 @@ export default function DemoPage() {
 
   // Results state
   const [detectionResult, setDetectionResult] = useState(null);
-  const [uploadedImage, setUploadedImage] = useState(null);
   const [saveSuccess, setSaveSuccess] = useState('');
   const [attendanceError, setAttendanceError] = useState('');
   const [submittingLog, setSubmittingLog] = useState(false);
@@ -43,14 +42,6 @@ export default function DemoPage() {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
 
-  // URL query params auto-filling
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const modeParam = params.get('mode');
-    if (modeParam === 'upload') {
-      setActiveMode('upload');
-    }
-  }, []);
 
   // Check Python AI Service Health via backend proxy
   const checkAiHealth = async () => {
@@ -280,107 +271,6 @@ export default function DemoPage() {
     }
   };
 
-  // Upload an image and send to Python AI (YOLOv11 + dlib ResNet)
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const base64Data = event.target.result;
-        setUploadedImage(base64Data);
-        setIsScanning(true);
-        setDetectionResult(null);
-        setNoticeMessage('');
-        setSaveSuccess('');
-        setAttendanceError('');
-
-        try {
-          const targetUrl = `${API_BASE}/ai/predict`;
-          const res = await fetch(targetUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              image: base64Data,
-              auto_checkin: false
-            })
-          });
-
-          if (!res.ok) throw new Error(`Status ${res.status}`);
-          const aiData = await res.json();
-          const hasFaces = Boolean(aiData.success && (aiData.faces_detected > 0 || aiData.facesDetected > 0 || aiData.matched));
-
-          if (hasFaces) {
-            const topFace = aiData.top_match || (aiData.faces && aiData.faces[0]) || {};
-            const isMatch = Boolean(aiData.matched || topFace.is_match);
-            const fullName = aiData.fullName || aiData.userName || topFace.fullName || topFace.name || aiData.employeeCode || 'Unknown';
-            const empCode = aiData.employeeCode || topFace.employeeCode || topFace.employeeId || (isMatch ? fullName : 'N/A');
-
-            const confidenceVal = typeof aiData.confidence === 'number'
-              ? aiData.confidence
-              : (typeof aiData.similarity === 'number' ? +(aiData.similarity * 100).toFixed(1) : (typeof topFace.confidence === 'number' ? topFace.confidence : 0));
-
-            let liveScore = null;
-            let isReal = null;
-            let livenessStatus = 'UNKNOWN';
-
-            if (typeof aiData.livenessScore === 'number' && !isNaN(aiData.livenessScore)) {
-              liveScore = aiData.livenessScore <= 1.0 ? +(aiData.livenessScore * 100).toFixed(1) : +aiData.livenessScore.toFixed(1);
-            } else if (aiData.liveness && typeof aiData.liveness.score === 'number') {
-              liveScore = +aiData.liveness.score.toFixed(1);
-            } else if (typeof topFace.liveness_score === 'number') {
-              liveScore = +topFace.liveness_score.toFixed(1);
-            }
-
-            if (liveScore !== null) {
-              const passThreshold = liveScore >= 65;
-              const notSpoof = aiData.spoofType !== 'spoof' && topFace.spoof_type !== 'spoof';
-              isReal = passThreshold && notSpoof;
-              livenessStatus = isReal ? 'REAL' : 'FAKE';
-            }
-
-            const rawBbox = topFace.relative_bbox || topFace.bbox || null;
-            let faceBox = null;
-            if (rawBbox && typeof rawBbox.top === 'number' && typeof rawBbox.width === 'number') {
-              faceBox = {
-                top: `${rawBbox.top}%`,
-                left: `${rawBbox.left}%`,
-                width: `${rawBbox.width}%`,
-                height: `${rawBbox.height}%`,
-              };
-            }
-
-            // Ảnh tĩnh tải lên không lật gương: dùng tọa độ gốc
-            setDetectionResult({
-              name: fullName,
-              confidence: confidenceVal,
-              isReal,
-              livenessScore: liveScore,
-              livenessStatus,
-              spoofType: aiData.spoofType || topFace.spoof_type || null,
-              faceBox,
-              inferenceTime: aiData.inference_time_ms || aiData.timingMs || 0,
-              isMatch,
-              distance: typeof topFace.distance === 'number' ? topFace.distance : (typeof aiData.distance === 'number' ? aiData.distance : null),
-              status: isMatch ? 'Xác thực thành công (Match Verified)' : 'Không khớp (Unknown)',
-              modelUsed: aiData.model_used || aiData.modelVersion || 'AI Service',
-              facesDetected: aiData.faces_detected || aiData.facesDetected || 1,
-              department: isMatch ? 'Hồ sơ đã lưu trên MongoDB' : 'Chưa có trong CSDL',
-              empId: empCode,
-            });
-          } else {
-            setNoticeMessage('Không tìm thấy khuôn mặt nào trong ảnh vừa tải lên.');
-          }
-        } catch (err) {
-          console.warn('Lỗi phân tích AI ảnh tải lên:', err);
-          setNoticeMessage('⚠️ Không thể kết nối đến Python AI (port 8000). Hãy đảm bảo AI Service đang chạy.');
-        } finally {
-          setIsScanning(false);
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   const handleRecordAttendance = async () => {
     if (!detectionResult) return;
     setNoticeMessage('');
@@ -527,19 +417,11 @@ export default function DemoPage() {
           Webcam trực tiếp (Live AI)
         </button>
 
-        <button
-          onClick={() => handleModeChange('upload')}
-          className={activeMode === 'upload' ? 'btn-primary' : 'btn-outline'}
-          style={{ padding: '10px 22px' }}
-        >
-          <Upload size={16} />
-          Tải ảnh phân tích
-        </button>
       </div>
 
 
       {/* ========================================================================= */}
-      {/* KHUNG THỬ NGHIỆM AI: WEBCAM HOẶC UPLOAD PHÂN TÍCH */}
+      {/* KHUNG THỬ NGHIỆM AI: WEBCAM */}
       {/* ========================================================================= */}
       <div
         style={{
@@ -572,7 +454,7 @@ export default function DemoPage() {
                     ? isCameraActive
                       ? 'Camera hoạt động (Tỷ lệ 16:9 chuẩn)'
                       : 'Camera đang tắt'
-                    : 'Chế độ phân tích ảnh tĩnh'}
+                    : 'Camera đang tắt'}
                 </span>
               </div>
 
@@ -659,52 +541,9 @@ export default function DemoPage() {
                 </>
               )}
 
-              {/* Image upload preview */}
-              {activeMode === 'upload' && (
-                <>
-                  {uploadedImage ? (
-                    <img
-                      src={uploadedImage}
-                      alt="Face preview"
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'contain',
-                      }}
-                    />
-                  ) : (
-                    <label
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        width: '100%',
-                        height: '100%',
-                        padding: '24px',
-                      }}
-                    >
-                      <Upload size={32} color="var(--text-muted)" style={{ marginBottom: '12px' }} />
-                      <p style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
-                        Nhấp để chọn ảnh chân dung
-                      </p>
-                      <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
-                        Định dạng JPG, PNG (rõ nét khuôn mặt)
-                      </p>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        style={{ display: 'none' }}
-                      />
-                    </label>
-                  )}
-                </>
-              )}
 
               {/* Bounding Box Overlay chuẩn xác - Chỉ hiển thị khi camera/ảnh đang hoạt động */}
-              {((activeMode === 'webcam' && isCameraActive) || (activeMode === 'upload' && uploadedImage)) && detectionResult?.faceBox && (
+              {(activeMode === 'webcam' && isCameraActive) && detectionResult?.faceBox && (
                 <div
                   className="minimal-face-box"
                   style={{
@@ -821,17 +660,6 @@ export default function DemoPage() {
                 </button>
               )}
 
-              {activeMode === 'upload' && (
-                <label className="btn-outline" style={{ cursor: 'pointer', flex: 1, textAlign: 'center' }}>
-                  <Upload size={16} /> Chọn ảnh khác
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    style={{ display: 'none' }}
-                  />
-                </label>
-              )}
             </div>
           </div>
 

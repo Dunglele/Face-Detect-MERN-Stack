@@ -1,725 +1,447 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React from 'react';
+import { Link } from 'react-router-dom';
+
+const MANAGER_PORTAL_URL = import.meta.env.VITE_MANAGER_PORTAL_URL || 'http://localhost:3000';
 import {
   ArrowRight,
-  CheckCircle2,
-  Cpu,
-  Fingerprint,
-  Zap,
-  Database,
-  Star,
-  ShieldCheck,
-  ScanLine,
   ArrowUpRight,
-  Clock,
-  Layers
+  ScanFace,
+  ShieldCheck,
+  Cpu,
+  Sparkles,
+  Layers,
+  Check,
+  UserCheck,
+  Database,
+  Eye,
+  Camera,
+  Activity,
+  CheckCircle2,
 } from 'lucide-react';
+import './LandingPage.css';
+
+const WORKFLOW_STEPS = [
+  {
+    step: '01',
+    title: 'Đăng ký & Quản trị',
+    system: 'AIAttendanceWeb3 (Port 3000)',
+    desc: 'Đăng ký vector khuôn mặt nhân viên, thiết lập ca kíp, phân quyền và neo hồ sơ xác thực trên blockchain.',
+    icon: Database,
+    badge: 'Quản lý tập trung',
+  },
+  {
+    step: '02',
+    title: 'Chấm công tức thì',
+    system: 'Kiosk Station (Port 5173 /kiosk)',
+    desc: 'Nhân viên đứng trước camera kiosk. YOLOv11 phát hiện khuôn mặt, dlib ResNet khớp định danh và MiniFASNet loại bỏ giả mạo trong tích tắc.',
+    icon: ScanFace,
+    badge: 'Edge / Kiosk AI',
+  },
+  {
+    step: '03',
+    title: 'Theo dõi & Trợ lý cá nhân',
+    system: 'Cổng Nhân Viên (Port 5173 /portal)',
+    desc: 'Nhân viên chủ động xem bảng công tháng, gửi đơn nghỉ phép và nhận phản hồi tức thì từ Trợ lý ảo AI.',
+    icon: Sparkles,
+    badge: 'Tự phục vụ',
+  },
+];
+
+const HIGHLIGHTS = [
+  {
+    title: 'YOLOv11 Face Detector',
+    desc: 'Định vị khuôn mặt đa góc độ với độ trễ cực thấp, chịu điều kiện thiếu sáng hoặc nghiêng góc.',
+    icon: Eye,
+  },
+  {
+    title: 'dlib ResNet Embedding',
+    desc: 'Vector đặc trưng 128 chiều tối ưu cho so khớp định danh sinh trắc học chuẩn xác.',
+    icon: Cpu,
+  },
+  {
+    title: 'MiniFASNet Anti-Spoofing',
+    desc: 'Phân tích độ sống sinh trắc học thời gian thực, ngăn chặn giả mạo bằng màn hình hoặc ảnh in.',
+    icon: ShieldCheck,
+  },
+  {
+    title: 'Kiến trúc Microservices',
+    desc: 'Tách biệt rõ ràng Kiosk/Nhân viên (FaceMERN) và Quản trị/Web3/PhoBERT (AIAttendanceWeb3).',
+    icon: Layers,
+  },
+];
 
 export default function LandingPage() {
-  const [emailInput, setEmailInput] = useState('');
-  const navigate = useNavigate();
-
-  const handleQuickStart = (e) => {
-    e.preventDefault();
-    navigate('/demo');
-  };
-
   return (
-    <div style={{ position: 'relative', width: '100%', overflow: 'hidden' }}>
-      {/* Background Video (Vertically flipped scaleY(-1) with white gradient overlay as specified in design.md) */}
-      <div className="hero-video-container">
-        <video
-          className="hero-video"
-          autoPlay
-          loop
-          muted
-          playsInline
-          poster="https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1920&q=80"
-        >
-          {/* Subtle slow motion cloud/water movement */}
-          <source
-            src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
-            type="video/mp4"
-          />
-        </video>
-        <div className="hero-gradient-overlay" />
-      </div>
-
-      {/* Hero Section */}
-      <section
-        style={{
-          position: 'relative',
-          zIndex: 2,
-          maxWidth: '1280px',
-          margin: '0 auto',
-          padding: '240px 24px 100px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          textAlign: 'center',
-        }}
-      >
-        {/* Social Proof Badge */}
-        <div
-          className="badge-minimal"
-          style={{
-            marginBottom: '28px',
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-            backgroundColor: '#ffffff',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '3px', color: '#f59e0b' }}>
-            <Star size={13} fill="#f59e0b" />
-            <Star size={13} fill="#f59e0b" />
-            <Star size={13} fill="#f59e0b" />
-            <Star size={13} fill="#f59e0b" />
-            <Star size={13} fill="#f59e0b" />
-          </div>
-          <span style={{ color: 'var(--text-primary)', fontWeight: 600, marginLeft: '4px' }}>
-            4.9/5
-          </span>
-          <span style={{ color: 'var(--text-dim)' }}>&bull;</span>
-          <span style={{ color: 'var(--text-secondary)' }}>
-            Hệ thống AI nhận diện 99.2% chính xác
-          </span>
-        </div>
-
-        {/* Headline with Geist + Instrument Serif italic */}
-        <h1
-          style={{
-            fontSize: 'clamp(2.6rem, 5.5vw, 4.8rem)',
-            fontWeight: 700,
-            lineHeight: 1.08,
-            letterSpacing: '-0.04em',
-            maxWidth: '960px',
-            marginBottom: '24px',
-            color: 'var(--text-primary)',
-          }}
-        >
-          Quản lý nhân sự và điểm danh{' '}
-          <span
-            className="font-accent-italic"
-            style={{
-              fontSize: '1.2em',
-              fontWeight: 400,
-              color: 'var(--text-secondary)',
-              padding: '0 4px',
-            }}
-          >
-            chính xác
-          </span>{' '}
-          bằng thị giác AI.
-        </h1>
-
-        {/* Subtitle - 18px, opacity 80%, max 72ch */}
-        <p
-          style={{
-            fontSize: '1.125rem',
-            lineHeight: 1.65,
-            color: 'var(--text-secondary)',
-            opacity: 0.85,
-            maxWidth: '68ch',
-            marginBottom: '44px',
-          }}
-        >
-          Kết hợp tốc độ dò tìm vị trí mặt của <strong>YOLOv11</strong> và thuật toán nhúng 
-          vector 128 chiều <strong>dlib ResNet</strong> trên nền tảng <strong>MERN Stack</strong>. 
-          Điểm danh tức thì dưới 0.01 giây, loại bỏ hoàn toàn gian lận chấm công.
-        </p>
-
-        {/* Input Pill & CTA Form (rounded 40px with soft shadow) */}
-        <form onSubmit={handleQuickStart} style={{ marginBottom: '32px', width: '100%', display: 'flex', justifyContent: 'center' }}>
-          <div className="input-hero-pill">
-            <input
-              type="text"
-              placeholder="Nhập tên nhân viên để thử nghiệm..."
-              value={emailInput}
-              onChange={(e) => setEmailInput(e.target.value)}
-            />
-            <button type="submit" className="btn-primary" style={{ flexShrink: 0, padding: '10px 24px' }}>
-              Thử nghiệm AI
-              <ArrowRight size={16} />
-            </button>
-          </div>
-        </form>
-
-        {/* Action Link to /portal and Central Admin */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
-          <Link
-            to="/portal"
-            style={{
-              fontSize: '0.875rem',
-              fontWeight: 600,
-              color: 'var(--text-secondary)',
-              textDecoration: 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 16px',
-              borderRadius: 'var(--rounded-sm)',
-              border: '1px solid var(--border-subtle)',
-              backgroundColor: '#ffffff',
-            }}
-          >
-            Vào Cổng Nhân Viên (/portal)
-            <ArrowRight size={14} />
-          </Link>
-
-          <a
-            href="http://localhost:3000"
-            target="_blank"
-            rel="noreferrer"
-            style={{
-              fontSize: '0.875rem',
-              fontWeight: 600,
-              color: 'var(--text-secondary)',
-              textDecoration: 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 16px',
-              borderRadius: 'var(--rounded-sm)',
-              border: '1px solid var(--border-subtle)',
-              backgroundColor: '#ffffff',
-            }}
-          >
-            Cổng Quản Trị &amp; Đăng ký mặt
-            <ArrowUpRight size={14} />
-          </a>
-        </div>
-      </section>
-
-      {/* Key Numbers Row (Minimalist cards) */}
-      <section
-        style={{
-          maxWidth: '1280px',
-          margin: '0 auto 80px',
-          padding: '0 24px',
-        }}
-      >
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-            gap: '16px',
-          }}
-        >
-          <div className="minimal-card" style={{ padding: '32px 28px' }}>
-            <div style={{ fontSize: '2.5rem', fontWeight: 700, letterSpacing: '-0.04em' }}>
-              &lt; 0.01s
+    <div className="landing-editorial">
+      {/* Split-screen Hero: Text Left / Visual Right (design.md) */}
+      <section className="landing-hero-section">
+        <div className="landing-container landing-hero-grid">
+          {/* Left Column: Text & Editorial Typography */}
+          <div className="landing-hero-content">
+            <div className="landing-hero-badge">
+              <span className="landing-badge-dot" />
+              <span className="landing-badge-label">Kiến Trúc Microservices 2026</span>
+              <span className="landing-badge-sep">•</span>
+              <span className="landing-badge-desc">Kiosk & Cổng Nhân Viên</span>
             </div>
-            <div style={{ fontSize: '0.9375rem', fontWeight: 600, marginTop: '8px' }}>
-              Dò tìm khuôn mặt
-            </div>
-            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.5 }}>
-              YOLOv11 định vị khuôn mặt cực nhanh, bắt góc nghiêng cực đại và che khuất.
-            </p>
-          </div>
 
-          <div className="minimal-card" style={{ padding: '32px 28px' }}>
-            <div style={{ fontSize: '2.5rem', fontWeight: 700, letterSpacing: '-0.04em' }}>
-              99.2%
-            </div>
-            <div style={{ fontSize: '0.9375rem', fontWeight: 600, marginTop: '8px' }}>
-              Độ chính xác xác thực
-            </div>
-            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.5 }}>
-              Tính toán độ trùng khớp danh tính dựa trên khoảng cách Euclidean phi tuyến tính.
-            </p>
-          </div>
+            <h1 className="landing-hero-title">
+              Chấm công sinh trắc học{' '}
+              <span className="font-accent-italic">chuẩn xác</span> bằng thị giác AI.
+            </h1>
 
-          <div className="minimal-card" style={{ padding: '32px 28px' }}>
-            <div style={{ fontSize: '2.5rem', fontWeight: 700, letterSpacing: '-0.04em' }}>
-              128-d
-            </div>
-            <div style={{ fontSize: '0.9375rem', fontWeight: 600, marginTop: '8px' }}>
-              Vector đặc trưng chuẩn
-            </div>
-            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.5 }}>
-              Học 20 góc mặt của từng nhân viên, nạp dữ liệu encodings trong chớp mắt.
-            </p>
-          </div>
-
-          <div className="minimal-card" style={{ padding: '32px 28px' }}>
-            <div style={{ fontSize: '2.5rem', fontWeight: 700, letterSpacing: '-0.04em' }}>
-              Realtime
-            </div>
-            <div style={{ fontSize: '0.9375rem', fontWeight: 600, marginTop: '8px' }}>
-              Đồng bộ CSDL MongoDB
-            </div>
-            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-              Bản ghi điểm danh được Express lưu tức thời và cập nhật trên Dashboard.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Feature Section 1: Zig-Zag Alternating Layout (Text Left, Visual Right) */}
-      <section
-        style={{
-          maxWidth: '1280px',
-          margin: '0 auto 120px',
-          padding: '0 24px',
-        }}
-      >
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-            gap: '60px',
-            alignItems: 'center',
-          }}
-        >
-          {/* Text Left */}
-          <div>
-            <div className="badge-minimal" style={{ marginBottom: '16px' }}>
-              <Zap size={14} /> Giai đoạn 1: Dò tìm siêu tốc
-            </div>
-            <h2
-              style={{
-                fontSize: 'clamp(2rem, 3.5vw, 2.75rem)',
-                fontWeight: 700,
-                letterSpacing: '-0.035em',
-                marginBottom: '20px',
-                lineHeight: 1.15,
-              }}
-            >
-              YOLOv11 Face &mdash; Bắt góc khuôn mặt{' '}
-              <span className="font-accent-italic" style={{ fontSize: '1.15em', fontWeight: 400 }}>
-                hoàn hảo
-              </span>
-            </h2>
-            <p style={{ fontSize: '1.0625rem', color: 'var(--text-secondary)', lineHeight: 1.65, marginBottom: '24px' }}>
-              Mô hình YOLOv11n-face chuyên dụng dò quét từng khung hình webcam ở độ phân giải gốc. 
-              Thuật toán tự động tìm kiếm vị trí khuôn mặt, loại bỏ nhiễu nền và cắt chuẩn xác 
-              vùng mặt ngay cả khi người dùng đeo kính, nghiêng đầu hoặc đứng xa camera.
+            <p className="landing-hero-subtitle">
+              Kết hợp tốc độ bắt diện <strong>YOLOv11 Face</strong>, mạng nhúng vector{' '}
+              <strong>dlib ResNet</strong> 128 chiều và kiểm định độ sống <strong>MiniFASNet</strong>.
+              Giao diện tối giản thiết kế riêng cho trạm kiosk và cổng tự phục vụ nhân viên.
             </p>
 
-            <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9375rem', color: 'var(--text-primary)' }}>
-                <CheckCircle2 size={18} color="#108a55" />
-                Định vị Bounding Box chính xác trong dưới 10ms
-              </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9375rem', color: 'var(--text-primary)' }}>
-                <CheckCircle2 size={18} color="#108a55" />
-                Khả năng thích ứng với điều kiện ánh sáng yếu hoặc ngược sáng
-              </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9375rem', color: 'var(--text-primary)' }}>
-                <CheckCircle2 size={18} color="#108a55" />
-                Chỉ cho phép chụp mẫu khi có đúng 1 khuôn mặt rõ nét
-              </li>
-            </ul>
+            <div className="landing-hero-cta">
+              <Link to="/kiosk" className="btn-primary landing-btn-pill">
+                <Camera size={18} />
+                <span>Mở Kiosk Chấm Công</span>
+                <ArrowRight size={16} />
+              </Link>
+
+              <Link to="/portal" className="btn-outline landing-btn-pill">
+                <UserCheck size={18} />
+                <span>Cổng Nhân Viên</span>
+              </Link>
+            </div>
+
+            {/* Meta Strip */}
+            <div className="landing-meta-strip">
+              <div className="landing-meta-item">
+                <span className="landing-meta-value">YOLOv11</span>
+                <span className="landing-meta-tag">Face Detect</span>
+              </div>
+              <div className="landing-meta-divider" />
+              <div className="landing-meta-item">
+                <span className="landing-meta-value">128-D</span>
+                <span className="landing-meta-tag">dlib Vector</span>
+              </div>
+              <div className="landing-meta-divider" />
+              <div className="landing-meta-item">
+                <span className="landing-meta-value">MiniFASNet</span>
+                <span className="landing-meta-tag">Anti-Spoof</span>
+              </div>
+            </div>
           </div>
 
-          {/* Visual Right */}
-          <div
-            className="minimal-card"
-            style={{
-              padding: '36px',
-              backgroundColor: 'var(--bg-neutral)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 'var(--rounded-card)',
-            }}
-          >
-            <div
-              style={{
-                backgroundColor: '#ffffff',
-                borderRadius: '20px',
-                border: '1px solid var(--border-subtle)',
-                padding: '24px',
-                boxShadow: 'var(--shadow-card)',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#108a55' }} />
-                  <span style={{ fontSize: '0.8125rem', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
-                    yolov11n-face.pt
-                  </span>
+          {/* Right Column: Local Simulated Kiosk Viewfinder Visual (No external URLs) */}
+          <div className="landing-hero-visual">
+            <div className="landing-kiosk-kard minimal-card">
+              <div className="landing-kiosk-kard-header">
+                <div className="landing-kiosk-live-badge">
+                  <span className="pulse-dot" />
+                  <span>MÔ PHỎNG GIAO DIỆN KIOSK</span>
                 </div>
-                <span className="badge-tag active">Confidence: 98.6%</span>
+                <div className="landing-kiosk-res">1280 × 720 (16:9)</div>
               </div>
 
-              {/* Simulated Detection Box Frame */}
-              <div
-                style={{
-                  height: '240px',
-                  backgroundColor: 'var(--bg-muted)',
-                  borderRadius: '14px',
-                  border: '1px solid var(--border-subtle)',
-                  position: 'relative',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  overflow: 'hidden',
-                }}
-              >
-                <div
-                  style={{
-                    width: '130px',
-                    height: '150px',
-                    border: '2px solid #1a1a1a',
-                    borderRadius: '12px',
-                    position: 'relative',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    padding: '8px',
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: '0.6875rem',
-                      fontFamily: 'var(--font-mono)',
-                      backgroundColor: '#1a1a1a',
-                      color: '#ffffff',
-                      padding: '2px 6px',
-                      borderRadius: '4px',
-                      alignSelf: 'flex-start',
-                    }}
+              {/* Viewfinder simulation using pure CSS and inline SVG */}
+              <div className="landing-kiosk-screen">
+                {/* Crosshairs & Scanning laser */}
+                <div className="landing-kiosk-laser" />
+
+                {/* Oval Guide Target */}
+                <div className="landing-kiosk-oval-target">
+                  {/* Subtle Wireframe Face SVG */}
+                  <svg
+                    viewBox="0 0 160 200"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="landing-face-vector"
                   >
-                    Face #1 (98.6%)
+                    <ellipse cx="80" cy="100" rx="60" ry="80" stroke="#1a1a1a" strokeWidth="1.5" strokeDasharray="3 3" opacity="0.4" />
+                    <circle cx="60" cy="88" r="4" fill="#1a1a1a" opacity="0.5" />
+                    <circle cx="100" cy="88" r="4" fill="#1a1a1a" opacity="0.5" />
+                    <path d="M78 96 L82 110 L75 112" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
+                    <path d="M64 135 Q80 148 96 135" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
+                    <line x1="80" y1="15" x2="80" y2="30" stroke="#1a1a1a" strokeWidth="2" opacity="0.5" />
+                    <line x1="80" y1="170" x2="80" y2="185" stroke="#1a1a1a" strokeWidth="2" opacity="0.5" />
+                    <line x1="15" y1="100" x2="30" y2="100" stroke="#1a1a1a" strokeWidth="2" opacity="0.5" />
+                    <line x1="130" y1="100" x2="145" y2="100" stroke="#1a1a1a" strokeWidth="2" opacity="0.5" />
+                  </svg>
+                </div>
+
+                {/* Top Corner HUD brackets */}
+                <div className="landing-hud-bracket tl" />
+                <div className="landing-hud-bracket tr" />
+                <div className="landing-hud-bracket bl" />
+                <div className="landing-hud-bracket br" />
+
+                {/* Floating Liveness Pill Indicator — demo label, không phải dữ liệu thật */}
+                <div className="landing-kiosk-floating-pill">
+                  <CheckCircle2 size={15} color="#108a55" />
+                  <span>MiniFASNet · Kiểm định độ sống sinh trắc học</span>
+                </div>
+
+                {/* Bottom Overlay Status — mô phỏng giao diện, không phải dữ liệu thật */}
+                <div className="landing-kiosk-hud-bottom">
+                  <div className="landing-hud-metric">
+                    <span>Định danh</span>
+                    <strong style={{ color: 'var(--text-muted, #6e7180)', fontStyle: 'italic' }}>— mô phỏng —</strong>
                   </div>
-                  <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-                    128-d aligned
+                  <div className="landing-hud-metric">
+                    <span>Thời gian quét</span>
+                    <strong style={{ color: 'var(--text-muted, #6e7180)', fontStyle: 'italic' }}>— mô phỏng —</strong>
+                  </div>
+                  <div className="landing-hud-metric">
+                    <span>Chế độ</span>
+                    <strong>Kiosk</strong>
                   </div>
                 </div>
               </div>
 
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  marginTop: '16px',
-                  fontSize: '0.8125rem',
-                  color: 'var(--text-muted)',
-                  fontFamily: 'var(--font-mono)',
-                }}
-              >
-                <span>Scale: 0.5x</span>
-                <span>Inference: 8.4ms</span>
-                <span>IoU: 0.70</span>
+              {/* Terminal Footer */}
+              <div className="landing-kiosk-kard-footer">
+                <span className="landing-footer-item">
+                  <Activity size={13} />
+                  <span>Central AI Hub · Kết nối thực khi khởi động Kiosk</span>
+                </span>
+                <span className="landing-footer-sep">•</span>
+                <span className="landing-footer-item">
+                  <span>Khoảng cách tối ưu: 50-70cm</span>
+                </span>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Feature Section 2: Zig-Zag Alternating Layout (Visual Left, Text Right) */}
-      <section
-        style={{
-          maxWidth: '1280px',
-          margin: '0 auto 120px',
-          padding: '0 24px',
-        }}
-      >
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-            gap: '60px',
-            alignItems: 'center',
-          }}
-        >
-          {/* Visual Left */}
-          <div
-            className="minimal-card"
-            style={{
-              padding: '36px',
-              backgroundColor: 'var(--bg-neutral)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 'var(--rounded-card)',
-            }}
-          >
-            <div
-              style={{
-                backgroundColor: '#ffffff',
-                borderRadius: '20px',
-                border: '1px solid var(--border-subtle)',
-                padding: '24px',
-                boxShadow: 'var(--shadow-card)',
-              }}
-            >
-              <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '14px' }}>
-                HỌC ĐA GÓC ĐỘ (20 FRAMES / NGƯỜI)
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '20px' }}>
-                {['Trực diện', 'Nghiêng T', 'Nghiêng P', 'Ngửa mặt'].map((label, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      padding: '12px 6px',
-                      backgroundColor: 'var(--bg-muted)',
-                      borderRadius: '10px',
-                      textAlign: 'center',
-                      border: '1px solid var(--border-subtle)',
-                    }}
-                  >
-                    <div style={{ fontSize: '0.9375rem', fontWeight: 700 }}>5/5</div>
-                    <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', marginTop: '2px' }}>{label}</div>
-                  </div>
-                ))}
-              </div>
-
-              <div
-                style={{
-                  padding: '14px',
-                  borderRadius: '12px',
-                  backgroundColor: 'var(--bg-muted)',
-                  fontSize: '0.8125rem',
-                  fontFamily: 'var(--font-mono)',
-                  color: 'var(--text-secondary)',
-                }}
-              >
-                <div>encodings.pkl &bull; 128 float64 values</div>
-                <div style={{ color: '#108a55', marginTop: '4px' }}>
-                  Tolerance threshold: 0.44 (Strictest)
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Text Right */}
-          <div>
-            <div className="badge-minimal" style={{ marginBottom: '16px' }}>
-              <Fingerprint size={14} /> Giai đoạn 2: Mã hóa đặc trưng 128 chiều
-            </div>
-            <h2
-              style={{
-                fontSize: 'clamp(2rem, 3.5vw, 2.75rem)',
-                fontWeight: 700,
-                letterSpacing: '-0.035em',
-                marginBottom: '20px',
-                lineHeight: 1.15,
-              }}
-            >
-              Trích xuất vector nhúng{' '}
-              <span className="font-accent-italic" style={{ fontSize: '1.15em', fontWeight: 400 }}>
-                bất biến
-              </span>{' '}
-              với dlib ResNet
+      {/* Asymmetric / Zigzag Overview Section */}
+      <section className="landing-zigzag-section">
+        <div className="landing-container">
+          <div className="landing-section-header">
+            <span className="landing-section-kicker">KIẾN TRÚC PHÂN HỆ</span>
+            <h2 className="landing-section-title">
+              Một hệ sinh thái, <span className="font-accent-italic">hai vai trò</span> chuyên biệt.
             </h2>
-            <p style={{ fontSize: '1.0625rem', color: 'var(--text-secondary)', lineHeight: 1.65, marginBottom: '24px' }}>
-              Mỗi khuôn mặt được chuyển đổi thành một vector toán học 128 chiều duy nhất. 
-              Khi nhân viên đứng trước camera, hệ thống so sánh khoảng cách Euclidean giữa 
-              khuôn mặt hiện tại và các vector đã nạp, quy đổi thành tỷ lệ phần trăm (%) trùng khớp chính xác.
-            </p>
-
-            <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9375rem', color: 'var(--text-primary)' }}>
-                <CheckCircle2 size={18} color="#108a55" />
-                Cơ chế đóng băng màn hình (Freeze Screen) xác thực điểm danh
-              </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9375rem', color: 'var(--text-primary)' }}>
-                <CheckCircle2 size={18} color="#108a55" />
-                Chống spam: Delay thông minh giữa các lần chấm công của cùng một người
-              </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9375rem', color: 'var(--text-primary)' }}>
-                <CheckCircle2 size={18} color="#108a55" />
-                Lưu trữ vector nén gọn nhẹ, tải vào RAM trong dưới 0.01 giây
-              </li>
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      {/* Editorial Architecture Pipeline */}
-      <section
-        style={{
-          maxWidth: '1280px',
-          margin: '0 auto 120px',
-          padding: '0 24px',
-        }}
-      >
-        <div
-          className="minimal-card"
-          style={{
-            padding: '48px 40px',
-            backgroundColor: 'var(--bg-neutral)',
-            border: '1px solid var(--border-subtle)',
-          }}
-        >
-          <div style={{ maxWidth: '640px', marginBottom: '40px' }}>
-            <span className="badge-minimal" style={{ marginBottom: '12px' }}>
-              <Database size={13} /> Kiến trúc luồng dữ liệu
-            </span>
-            <h3 style={{ fontSize: '2rem', fontWeight: 700, letterSpacing: '-0.03em' }}>
-              Từ luồng Camera đến Cơ sở dữ liệu MERN
-            </h3>
-            <p style={{ color: 'var(--text-muted)', marginTop: '8px', fontSize: '0.9375rem' }}>
-              Hệ thống được thiết kế theo mô hình phân tầng độc lập, đảm bảo khả năng mở rộng và tốc độ phản hồi tức thời.
+            <p className="landing-section-desc">
+              Phân hệ Kiosk & Cổng Nhân viên hoạt động độc lập, trao đổi dữ liệu an toàn với Central AI Hub
+              và chia sẻ cơ sở dữ liệu MongoDB đồng bộ với cổng quản trị AIAttendanceWeb3.
             </p>
           </div>
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-              gap: '20px',
-            }}
-          >
-            <div
-              style={{
-                backgroundColor: '#ffffff',
-                padding: '24px',
-                borderRadius: '20px',
-                border: '1px solid var(--border-subtle)',
-              }}
-            >
-              <div style={{ fontSize: '0.8125rem', fontFamily: 'var(--font-mono)', color: 'var(--text-dim)', marginBottom: '8px' }}>
-                BƯỚC 01
-              </div>
-              <h4 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '6px' }}>
-                Webcam Stream
-              </h4>
-              <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                Thu nhận khung hình trực tiếp với tốc độ 30 FPS qua giao thức chuẩn OpenCV / trình duyệt.
+          {/* Zigzag Row 1: Kiosk Station */}
+          <div className="landing-zigzag-row">
+            <div className="landing-zigzag-text">
+              <div className="landing-pill-tag">Trạm Kiosk Chấm Công</div>
+              <h3 className="landing-zigzag-heading">
+                Xác thực gương mặt rảnh tay trong 3 giây
+              </h3>
+              <p className="landing-zigzag-p">
+                Thiết kế toàn màn hình cho màn hình cảm ứng hoặc tablet đặt tại cửa ra vào.
+                Nhân viên chỉ cần hướng mắt về khung căn chỉnh oval, hệ thống tự động kiểm tra
+                khuôn mặt thật qua MiniFASNet trước khi ghi nhận lượt vào/ra ca.
               </p>
+              <ul className="landing-feature-list">
+                <li>
+                  <Check size={16} className="landing-check-icon" />
+                  <span>Cắt khung oval chuẩn hóa tránh méo ảnh và giảm tải truyền dữ liệu</span>
+                </li>
+                <li>
+                  <Check size={16} className="landing-check-icon" />
+                  <span>Xác nhận thông minh khi trùng ca hoặc cần chuyển đổi sang Check-out</span>
+                </li>
+                <li>
+                  <Check size={16} className="landing-check-icon" />
+                  <span>Âm báo trạng thái hỗ trợ xác thực trực quan và trợ năng</span>
+                </li>
+              </ul>
+              <div className="landing-zigzag-action">
+                <Link to="/kiosk" className="btn-primary landing-btn-pill">
+                  Trải nghiệm Kiosk ngay <ArrowRight size={16} />
+                </Link>
+              </div>
             </div>
 
-            <div
-              style={{
-                backgroundColor: '#ffffff',
-                padding: '24px',
-                borderRadius: '20px',
-                border: '1px solid var(--border-subtle)',
-              }}
-            >
-              <div style={{ fontSize: '0.8125rem', fontFamily: 'var(--font-mono)', color: 'var(--text-dim)', marginBottom: '8px' }}>
-                BƯỚC 02
+            <div className="landing-zigzag-preview minimal-card">
+              <div className="landing-preview-frame">
+                <div className="landing-preview-bar">
+                  <span className="landing-preview-dot red" />
+                  <span className="landing-preview-dot yellow" />
+                  <span className="landing-preview-dot green" />
+                  <span className="landing-preview-caption">kiosk-station / live-stream</span>
+                </div>
+                <div className="landing-preview-body">
+                  <div className="landing-mock-viewfinder">
+                    <div className="landing-mock-oval">
+                      <ScanFace size={48} className="landing-mock-face" />
+                    </div>
+                    <div className="landing-mock-toast">
+                      <span className="landing-mock-pulse" />
+                      <span>MiniFASNet · Kiểm định độ sống sinh trắc học</span>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <h4 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '6px' }}>
-                YOLOv11 Crop
-              </h4>
-              <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                Xác định tọa độ vùng mặt, căn chỉnh góc xoay và gửi ảnh đã chuẩn hóa đến bộ trích xuất.
+            </div>
+          </div>
+
+          {/* Zigzag Row 2: Employee Portal & AI Chatbot */}
+          <div className="landing-zigzag-row reverse">
+            <div className="landing-zigzag-text">
+              <div className="landing-pill-tag">Cổng Nhân Viên & AI Assistant</div>
+              <h3 className="landing-zigzag-heading">
+                Tra cứu công nhật, gửi phép và hỗ trợ thông minh
+              </h3>
+              <p className="landing-zigzag-p">
+                Không gian làm việc cá nhân hóa cho từng nhân viên. Trực quan hóa dữ liệu chấm công theo
+                tháng, biểu đồ hiện diện, quản lý ca kíp và nộp đơn xin nghỉ có kiểm tra số ngày phép còn lại.
               </p>
+              <ul className="landing-feature-list">
+                <li>
+                  <Check size={16} className="landing-check-icon" />
+                  <span>Biểu đồ chấm công trực quan và bảng chi tiết từng lượt quét Kiosk</span>
+                </li>
+                <li>
+                  <Check size={16} className="landing-check-icon" />
+                  <span>Tự phục vụ nộp đơn nghỉ phép nhanh chóng với quy trình xét duyệt minh bạch</span>
+                </li>
+                <li>
+                  <Check size={16} className="landing-check-icon" />
+                  <span>Tích hợp Trợ lý AI kết nối Central AI Hub tra cứu chính sách công ty</span>
+                </li>
+              </ul>
+              <div className="landing-zigzag-action">
+                <Link to="/portal" className="btn-primary landing-btn-pill">
+                  Đăng nhập Cổng Nhân Viên <ArrowRight size={16} />
+                </Link>
+              </div>
             </div>
 
-            <div
-              style={{
-                backgroundColor: '#ffffff',
-                padding: '24px',
-                borderRadius: '20px',
-                border: '1px solid var(--border-subtle)',
-              }}
-            >
-              <div style={{ fontSize: '0.8125rem', fontFamily: 'var(--font-mono)', color: 'var(--text-dim)', marginBottom: '8px' }}>
-                BƯỚC 03
+            <div className="landing-zigzag-preview minimal-card">
+              <div className="landing-preview-frame">
+                <div className="landing-preview-bar">
+                  <span className="landing-preview-dot red" />
+                  <span className="landing-preview-dot yellow" />
+                  <span className="landing-preview-dot green" />
+                  <span className="landing-preview-caption">portal-workspace / dashboard</span>
+                </div>
+                <div className="landing-preview-body p-padded">
+                  <div className="landing-mock-card-row">
+                    <div className="landing-mock-mini-card">
+                      <span className="landing-mock-num">22</span>
+                      <span className="landing-mock-lbl">Ngày công tháng</span>
+                    </div>
+                    <div className="landing-mock-mini-card">
+                      <span className="landing-mock-num">100%</span>
+                      <span className="landing-mock-lbl">Đúng giờ</span>
+                    </div>
+                    <div className="landing-mock-mini-card">
+                      <span className="landing-mock-num">10/12</span>
+                      <span className="landing-mock-lbl">Phép còn lại</span>
+                    </div>
+                  </div>
+                  <div className="landing-mock-chat-bubble">
+                    <Sparkles size={16} />
+                    <span>Trợ lý AI: &quot;Bạn đã hoàn thành đủ số công tuần này.&quot;</span>
+                  </div>
+                </div>
               </div>
-              <h4 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '6px' }}>
-                ResNet 128-d
-              </h4>
-              <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                Tính toán độ tương đồng với danh bạ vector, xác thực tên người dùng và tỷ lệ tin cậy.
-              </p>
-            </div>
-
-            <div
-              style={{
-                backgroundColor: '#ffffff',
-                padding: '24px',
-                borderRadius: '20px',
-                border: '1px solid var(--border-subtle)',
-              }}
-            >
-              <div style={{ fontSize: '0.8125rem', fontFamily: 'var(--font-mono)', color: 'var(--text-dim)', marginBottom: '8px' }}>
-                BƯỚC 04
-              </div>
-              <h4 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '6px' }}>
-                Express & MongoDB
-              </h4>
-              <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                Ghi nhận lịch sử điểm danh qua REST API và cập nhật theo thời gian thực trên trang Quản trị.
-              </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Call to Action Final Section */}
-      <section
-        style={{
-          maxWidth: '1280px',
-          margin: '0 auto 120px',
-          padding: '0 24px',
-          textAlign: 'center',
-        }}
-      >
-        <div
-          className="minimal-card"
-          style={{
-            padding: '64px 32px',
-            backgroundColor: 'var(--text-primary)',
-            color: '#ffffff',
-            borderRadius: 'var(--rounded-md)',
-          }}
-        >
-          <h2
-            style={{
-              fontSize: 'clamp(2.2rem, 4vw, 3.2rem)',
-              fontWeight: 700,
-              color: '#ffffff',
-              letterSpacing: '-0.04em',
-              marginBottom: '16px',
-            }}
-          >
-            Trải nghiệm hệ thống ngay hôm nay
-          </h2>
-          <p
-            style={{
-              fontSize: '1.125rem',
-              color: '#a1a1aa',
-              maxWidth: '56ch',
-              margin: '0 auto 36px',
-              lineHeight: 1.6,
-            }}
-          >
-            Khởi động camera trực tiếp trên trình duyệt để kiểm tra khả năng nhận diện hoặc xem báo cáo chấm công tại trang quản trị.
-          </p>
+      {/* 3-Step Flow Section */}
+      <section className="landing-steps-section">
+        <div className="landing-container">
+          <div className="landing-section-header">
+            <span className="landing-section-kicker">QUY TRÌNH HOẠT ĐỘNG</span>
+            <h2 className="landing-section-title">
+              Đồng bộ dữ liệu ba bước <span className="font-accent-italic">liền mạch</span>.
+            </h2>
+            <p className="landing-section-desc">
+              Phân chia trách nhiệm rõ ràng theo chuẩn Microservice để đảm bảo an toàn sinh trắc học và hiệu năng cao.
+            </p>
+          </div>
 
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', flexWrap: 'wrap' }}>
-            <Link
-              to="/demo"
-              style={{
-                backgroundColor: '#ffffff',
-                color: 'var(--text-primary)',
-                padding: '14px 32px',
-                borderRadius: 'var(--rounded-sm)',
-                fontWeight: 600,
-                fontSize: '1rem',
-                textDecoration: 'none',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              <ScanLine size={18} />
-              Mở trang Thử nghiệm AI
-            </Link>
+          <div className="landing-steps-grid">
+            {WORKFLOW_STEPS.map((item) => {
+              const Icon = item.icon;
+              return (
+                <div key={item.step} className="landing-step-card minimal-card">
+                  <div className="landing-step-top">
+                    <span className="landing-step-number">{item.step}</span>
+                    <span className="badge-minimal">{item.badge}</span>
+                  </div>
+                  <div className="landing-step-icon-wrap">
+                    <Icon size={24} />
+                  </div>
+                  <h3 className="landing-step-title">{item.title}</h3>
+                  <div className="landing-step-system">{item.system}</div>
+                  <p className="landing-step-desc">{item.desc}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
 
-            <Link
-              to="/admin"
-              style={{
-                backgroundColor: 'transparent',
-                color: '#ffffff',
-                border: '1.5px solid rgba(255, 255, 255, 0.25)',
-                padding: '14px 30px',
-                borderRadius: 'var(--rounded-sm)',
-                fontWeight: 600,
-                fontSize: '1rem',
-                textDecoration: 'none',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              Trang Quản trị (/admin)
-              <ArrowRight size={16} />
-            </Link>
+      {/* Technology Highlights Grid */}
+      <section className="landing-tech-section">
+        <div className="landing-container">
+          <div className="landing-section-header">
+            <span className="landing-section-kicker">CÔNG NGHỆ CỐT LÕI</span>
+            <h2 className="landing-section-title">
+              Nền tảng kỹ thuật <span className="font-accent-italic">đột phá</span>.
+            </h2>
+          </div>
+
+          <div className="landing-tech-grid">
+            {HIGHLIGHTS.map((item) => {
+              const Icon = item.icon;
+              return (
+                <div key={item.title} className="landing-tech-card minimal-card">
+                  <div className="landing-tech-icon">
+                    <Icon size={22} />
+                  </div>
+                  <h4 className="landing-tech-name">{item.title}</h4>
+                  <p className="landing-tech-desc">{item.desc}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* Bottom CTA Block */}
+      <section className="landing-cta-section">
+        <div className="landing-container">
+          <div className="landing-cta-box">
+            <span className="landing-section-kicker light">TRUY CẬP NHANH HỆ THỐNG</span>
+            <h2 className="landing-cta-title">
+              Sẵn sàng trải nghiệm hệ thống điểm danh?
+            </h2>
+            <p className="landing-cta-desc">
+              Khởi động máy Kiosk chấm công hoặc truy cập Cổng nhân viên để tra cứu dữ liệu thực tế.
+            </p>
+            <div className="landing-cta-actions">
+              <Link to="/kiosk" className="btn-primary landing-btn-pill light">
+                <Camera size={18} />
+                <span>Bật Kiosk Chấm Công</span>
+              </Link>
+              <Link to="/portal" className="btn-outline landing-btn-pill light">
+                <UserCheck size={18} />
+                <span>Cổng Nhân Viên</span>
+              </Link>
+              <Link to="/demo" className="btn-outline landing-btn-pill light">
+                <Cpu size={18} />
+                <span>Phòng Lab Thử Nghiệm AI</span>
+              </Link>
+              <a
+                href={MANAGER_PORTAL_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-outline landing-btn-pill light"
+              >
+                <span>Cổng Quản Trị AIAttendanceWeb3</span>
+                <ArrowUpRight size={16} />
+              </a>
+            </div>
           </div>
         </div>
       </section>

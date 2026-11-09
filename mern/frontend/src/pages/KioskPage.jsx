@@ -1,23 +1,69 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import {
-  Camera,
-  VideoOff,
   CheckCircle2,
   AlertTriangle,
   Clock,
   ShieldCheck,
   ShieldAlert,
-  Sparkles,
-  UserCheck,
   RotateCcw,
   Volume2,
   VolumeX,
+  ArrowLeft,
 } from 'lucide-react';
 import { calculateKioskCrop, drawOvalCroppedFrame } from '../utils/kioskCrop';
+import './KioskPage.css';
 
 const FACE_HOLD_MS = 3000;
 const SUCCESS_DISPLAY_MS = 5000;
 const PROMPT_TIMEOUT_MS = 5000;
+const MIN_MATCH_CONFIDENCE = 60;
+const LIVENESS_UNAVAILABLE_WARNING = 'Không thể xác thực độ sống lúc này. Vui lòng thử lại sau.';
+
+function getSpoofWarning(result) {
+  const explicitTypes = ['print_attack', 'replay_attack'];
+  const typeToWarning = (spoofType) => {
+    if (spoofType === 'print_attack') return 'Cảnh báo: phát hiện ảnh in. Vui lòng dùng khuôn mặt thật trước camera.';
+    if (spoofType === 'replay_attack') return 'Cảnh báo: phát hiện hình ảnh trên màn hình. Vui lòng dùng khuôn mặt thật trước camera.';
+    return '';
+  };
+
+  const top = result?.top_match;
+  if (result?.spoofType === 'spoof') {
+    return 'Cảnh báo: phát hiện dấu hiệu giả mạo khuôn mặt. Vui lòng dùng khuôn mặt thật trước camera.';
+  }
+  if (top?.is_match) {
+    const topType = typeToWarning(top.spoof_type);
+    if (topType) return topType;
+    const livenessStatus = top.liveness_status || top.spoof_status;
+    const unavailableType = ['model_missing', 'error', 'unknown', 'unverified'];
+    if (unavailableType.includes(top.spoof_type) || unavailableType.includes(livenessStatus)) {
+      return LIVENESS_UNAVAILABLE_WARNING;
+    }
+    if (top.spoof_type === 'spoof' || livenessStatus === 'spoof') {
+      return 'Cảnh báo: phát hiện dấu hiệu giả mạo khuôn mặt. Vui lòng dùng khuôn mặt thật trước camera.';
+    }
+    if (result.spoof_alert === true && top.is_real === false) {
+      if (top.spoof_type === 'spoof' || livenessStatus === 'spoof') {
+        return 'Cảnh báo: phát hiện dấu hiệu giả mạo khuôn mặt. Vui lòng dùng khuôn mặt thật trước camera.';
+      }
+      return LIVENESS_UNAVAILABLE_WARNING;
+    }
+    if (top.is_real === false && explicitTypes.includes(top.spoof_status)) {
+      return typeToWarning(top.spoof_status);
+    }
+    if (top.is_real === false && (top.spoof_status === 'spoof' || top.status === 'spoof')) {
+      return 'Cảnh báo: phát hiện dấu hiệu giả mạo khuôn mặt. Vui lòng dùng khuôn mặt thật trước camera.';
+    }
+  }
+
+  const faces = Array.isArray(result?.faces) ? result.faces : [];
+  for (const face of faces) {
+    const warning = typeToWarning(face?.spoof_type);
+    if (warning) return warning;
+  }
+  return '';
+}
 
 export default function KioskPage() {
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -56,6 +102,8 @@ export default function KioskPage() {
   const freezeTimeoutRef = useRef(null);
   const checkoutPromptTimeoutRef = useRef(null);
   const checkoutPromptCountdownRef = useRef(null);
+  const lastErrorRef = useRef({ message: '', shownAt: 0 });
+  const stableWarningRef = useRef('');
 
   // Hold stability state ref: tracks the currently holding identity and start timestamp
   const faceHoldRef = useRef({
@@ -132,6 +180,9 @@ export default function KioskPage() {
   }
 
   function showKioskError(msg, durationMs = 3500) {
+    const now = Date.now();
+    if (lastErrorRef.current.message === msg && now - lastErrorRef.current.shownAt < 2500) return;
+    lastErrorRef.current = { message: msg, shownAt: now };
     if (errorTimeoutRef.current) {
       clearTimeout(errorTimeoutRef.current);
     }
@@ -140,6 +191,21 @@ export default function KioskPage() {
     errorTimeoutRef.current = setTimeout(() => {
       setAttendanceError('');
     }, durationMs);
+  }
+
+  function showStableWarning(msg) {
+    if (errorTimeoutRef.current) {
+      clearTimeout(errorTimeoutRef.current);
+      errorTimeoutRef.current = null;
+    }
+    stableWarningRef.current = msg;
+    setAttendanceError(msg);
+  }
+
+  function clearStableWarning() {
+    if (!stableWarningRef.current) return;
+    stableWarningRef.current = '';
+    setAttendanceError('');
   }
 
   // Cleanup timers on unmount
@@ -365,12 +431,27 @@ export default function KioskPage() {
       if (!hasFace) {
         resetFaceHold();
         setCurrentMatch(null);
+        clearStableWarning();
+        if (errorTimeoutRef.current) {
+          clearTimeout(errorTimeoutRef.current);
+          errorTimeoutRef.current = null;
+        }
+        setAttendanceError('');
+        return;
+      }
+
+      const spoofWarning = getSpoofWarning(result);
+      if (spoofWarning) {
+        resetFaceHold();
+        setCurrentMatch(null);
+        showStableWarning(spoofWarning);
         return;
       }
 
       const isMatched = Boolean(result.matched || (result.top_match && result.top_match.is_match));
 
       if (isMatched) {
+        clearStableWarning();
         const top = (result.matches && result.matches.length > 0) ? result.matches[0] : (result.top_match || {});
         const fullName = result.fullName || result.userName || top.fullName || top.name || result.employeeCode || 'Nhân viên';
         const empCode = result.employeeCode || top.employeeCode || top.employeeId || '';
@@ -383,6 +464,13 @@ export default function KioskPage() {
           confidenceVal = +(result.similarity * 100).toFixed(1);
         } else if (typeof top.confidence === 'number' && !isNaN(top.confidence)) {
           confidenceVal = top.confidence;
+        }
+
+        if (confidenceVal === null || confidenceVal < MIN_MATCH_CONFIDENCE) {
+          resetFaceHold();
+          setCurrentMatch(null);
+          showKioskError('Độ tin cậy nhận diện chưa đủ 60%. Vui lòng nhìn thẳng và giữ yên trước camera.');
+          return;
         }
 
         // Đọc livenessScore thực tế
@@ -462,9 +550,10 @@ export default function KioskPage() {
           });
         }
       } else {
-        // Có khuôn mặt nhưng không khớp danh tính: im lặng quét tiếp, reset hold
+        // Có khuôn mặt nhưng chưa khớp danh tính: báo một lần, không submit.
         resetFaceHold();
         setCurrentMatch(null);
+        showStableWarning('Khuôn mặt chưa được đăng ký, vui lòng liên hệ quản trị viên để đăng ký khuôn mặt.');
       }
     } catch (err) {
       resetFaceHold();
@@ -657,9 +746,9 @@ export default function KioskPage() {
   function getCameraStatusInfo() {
     if (!isCameraActive || cameraError) {
       return {
-        label: 'Hệ thống gặp lỗi',
-        dotColor: '#ef4444',
-        reason: cameraError || 'Camera chưa được kích hoạt hoặc không thể truy cập.',
+        label: cameraError ? 'Camera cần được kiểm tra' : 'Đang mở camera',
+        dotColor: cameraError ? '#ef4444' : '#f59e0b',
+        reason: cameraError || 'Đang yêu cầu quyền truy cập camera.',
       };
     }
     if (aiServiceStatus.state === 'error') {
@@ -693,101 +782,59 @@ export default function KioskPage() {
   const cameraStatus = getCameraStatusInfo();
 
   return (
-    <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '32px 24px', width: '100%' }}>
+    <div className="kiosk-page">
       {/* Kiosk Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#1a1a1a', letterSpacing: '-0.03em' }}>
-              Máy Chấm Công & Điểm Danh Sinh Trắc Học
-            </h1>
-            <span
-              style={{
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                padding: '3px 10px',
-                borderRadius: '20px',
-                backgroundColor: '#f0fdf4',
-                color: '#16a34a',
-                border: '1px solid #bbf7d0',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-              }}
-            >
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#16a34a' }} />
-              Kiosk Station Active
-            </span>
-          </div>
-          <p style={{ color: '#6e7180', fontSize: '0.875rem', marginTop: '4px' }}>
-            Tự động nhận diện khuôn mặt qua YOLOv11 + dlib ResNet và xác thực chống giả mạo MiniFASNet.
-          </p>
+      <div className="kiosk-header">
+        <div className="kiosk-heading">
+          <div className="kiosk-eyebrow"><span className="kiosk-eyebrow-dot" /> TRẠM CHẤM CÔNG NHÂN VIÊN</div>
+          <h1>Chấm công bằng khuôn mặt</h1>
+          <p>Chọn vào ca hoặc ra ca, sau đó nhìn thẳng vào camera và giữ yên trong 3 giây.</p>
         </div>
 
         {/* Kiosk Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div className="kiosk-controls">
           {/* Mode Switch: Check-in / Check-out */}
-          <div
-            style={{
-              display: 'flex',
-              backgroundColor: '#f4f4f5',
-              padding: '3px',
-              borderRadius: '30px',
-              border: '1px solid rgba(0,0,0,0.06)',
-            }}
-          >
+          <div className="kiosk-mode-switch" role="group" aria-label="Chọn thao tác chấm công">
             <button
               onClick={() => setCheckType('Check-in')}
-              style={{
-                padding: '6px 16px',
-                borderRadius: '24px',
-                border: 'none',
-                backgroundColor: checkType === 'Check-in' ? '#1a1a1a' : 'transparent',
-                color: checkType === 'Check-in' ? '#ffffff' : '#52525b',
-                fontWeight: 600,
-                fontSize: '0.8125rem',
-                cursor: 'pointer',
-              }}
+              className={checkType === 'Check-in' ? 'is-active' : ''}
+              aria-pressed={checkType === 'Check-in'}
             >
-              Vào ca (Check-in)
+              Vào ca
             </button>
             <button
               onClick={() => setCheckType('Check-out')}
-              style={{
-                padding: '6px 16px',
-                borderRadius: '24px',
-                border: 'none',
-                backgroundColor: checkType === 'Check-out' ? '#1a1a1a' : 'transparent',
-                color: checkType === 'Check-out' ? '#ffffff' : '#52525b',
-                fontWeight: 600,
-                fontSize: '0.8125rem',
-                cursor: 'pointer',
-              }}
+              className={checkType === 'Check-out' ? 'is-active' : ''}
+              aria-pressed={checkType === 'Check-out'}
             >
-              Ra ca (Check-out)
+              Ra ca
             </button>
           </div>
 
           <button
             onClick={() => setSoundEnabled(!soundEnabled)}
-            style={{
-              padding: '8px 12px',
-              borderRadius: '24px',
-              border: '1px solid rgba(0,0,0,0.08)',
-              backgroundColor: '#ffffff',
-              color: soundEnabled ? '#1a1a1a' : '#a1a1aa',
-              cursor: 'pointer',
-            }}
-            title={soundEnabled ? 'Bật âm báo' : 'Tắt âm báo'}
+            className="kiosk-icon-button"
+            title={soundEnabled ? 'Tắt âm báo' : 'Bật âm báo'}
+            aria-label={soundEnabled ? 'Tắt âm báo' : 'Bật âm báo'}
+            aria-pressed={soundEnabled}
           >
-            {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+            {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
           </button>
+          <Link className="kiosk-exit-link" to="/portal"><ArrowLeft size={18} /> Cổng nhân viên</Link>
         </div>
       </div>
 
+      <div className={`kiosk-status-banner ${cameraError || aiServiceStatus.state === 'error' ? 'is-error' : ''}`} role="status" aria-live="polite">
+        <span className="kiosk-status-indicator" style={{ backgroundColor: cameraStatus.dotColor }} />
+        <strong>{cameraStatus.label}</strong>
+        <span>{cameraStatus.reason}</span>
+        <span className="kiosk-status-mode">Đang chọn: {checkType === 'Check-in' ? 'Vào ca' : 'Ra ca'}</span>
+      </div>
+
       {cameraError && (
-        <div style={{ padding: '14px', borderRadius: '16px', backgroundColor: '#fef2f2', border: '1px solid #fee2e2', color: '#b91c1c', marginBottom: '20px' }}>
-          {cameraError}
+        <div className="kiosk-error-action">
+          <span>{cameraError}</span>
+          <button type="button" onClick={startCamera}>Thử lại camera</button>
         </div>
       )}
 
@@ -799,9 +846,10 @@ export default function KioskPage() {
       )}
 
       {/* Main Kiosk Layout Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(320px, 1fr)', gap: '24px', alignItems: 'start' }}>
+      <div className="kiosk-main-grid">
         {/* Left: Interactive Camera Viewfinder */}
         <div
+          className="kiosk-camera"
           style={{
             position: 'relative',
             borderRadius: '28px',
@@ -911,6 +959,7 @@ export default function KioskPage() {
           {/* Modal / Overlay xác nhận Check-out khi gặp ALREADY_CHECKED_IN */}
           {checkoutPrompt && (
             <div
+              className="kiosk-camera-overlay"
               style={{
                 position: 'absolute',
                 top: 0,
@@ -1085,6 +1134,7 @@ export default function KioskPage() {
           {/* FULL SCREEN FREEZE SUCCESS OVERLAY */}
           {freezeCard && (
             <div
+              className="kiosk-camera-overlay"
               style={{
                 position: 'absolute',
                 top: 0,
@@ -1208,7 +1258,7 @@ export default function KioskPage() {
         </div>
 
         {/* Right: Recent Kiosk Logs & Guide */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div className="kiosk-side-panel">
           {/* Instructions Box */}
           <div
             style={{

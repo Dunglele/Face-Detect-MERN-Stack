@@ -50,6 +50,26 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/employee', employeeRoutes);
 app.use('/api/chat', chatRoutes);
+// Employee portal and kiosk share the central guided chatbot. Forward the
+// original Bearer token; central backend remains responsible for RBAC/session.
+app.use('/api/chatbot', async (req, res) => {
+  try {
+    const target = new URL(`${CENTRAL_BACKEND_URL}/api/chatbot${req.url}`);
+    const upstream = await fetch(target, {
+      method: req.method,
+      headers: {
+        Authorization: req.headers.authorization || '',
+        ...(req.method === 'GET' ? {} : { 'Content-Type': 'application/json' }),
+      },
+      ...(req.method === 'GET' ? {} : { body: JSON.stringify(req.body || {}) }),
+      signal: AbortSignal.timeout(10000),
+    });
+    const payload = await upstream.text();
+    res.status(upstream.status).type(upstream.headers.get('content-type') || 'application/json').send(payload);
+  } catch {
+    res.status(503).json({ status: 'error', sessionId: null, state: null, messages: [{ type: 'error', text: 'Chatbot trung tâm tạm thời không sẵn sàng.' }] });
+  }
+});
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/users', userRoutes);
 

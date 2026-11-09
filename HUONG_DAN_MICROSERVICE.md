@@ -11,7 +11,7 @@ Hệ thống được thiết kế và triển khai theo kiến trúc **Microser
 | **1** | **AIAttendanceWeb3 Central Backend** | `AIAttendanceWeb3/backend` | **`4000`** | **Quản trị doanh nghiệp & Web3**: Quản lý Nhân sự (User), Phòng ban (Department), Ca làm việc (Shift), Phân ca (ShiftAssignment), Giao KPI, Duyệt đơn nghỉ (Leave approval), Báo cáo tổng hợp ngày/tháng, Neo bằng chứng Merkle Root lên Blockchain Sepolia, RBAC và NLU proxy. |
 | **2** | **AIAttendanceWeb3 Central AI Service** | `AIAttendanceWeb3/ai-service` | **`8000`** | **NLU & Đăng ký sinh trắc**: Xử lý ngôn ngữ tự nhiên tiếng Việt PhoBERT (`/api/v1/nlu/query`), Trích xuất vector & Đăng ký khuôn mặt chuẩn hóa (`/api/v1/face/enroll`). |
 | **3** | **AIAttendanceWeb3 Admin Frontend** | `AIAttendanceWeb3/frontend` | **`3000`** | **Giao diện Quản trị**: Màn hình Quản lý/Admin duyệt đơn, cấu hình ca kíp, phân công KPI, quản lý thiết bị, thu thập mẫu và đăng ký khuôn mặt nhân viên (`FaceEnrollPage`). |
-| **4** | **Face-Detect Employee BFF** | `Face-Detect-MERN-Stack/mern/backend` | **`5000`** | **Cổng nghiệp vụ Nhân viên & Kiosk**: Xác thực JWT nhân viên, tiếp nhận chấm công Kiosk, chấm công thủ công vào/ra ca, tạo đơn xin nghỉ phép (`LeaveRequest`), tra cứu ca/KPI cá nhân, cấp token bảo chứng AI chống giả mạo điểm số. |
+| **4** | **Face-Detect Employee BFF** | `Face-Detect-MERN-Stack/mern/backend` | **`5000`** | **Cổng nghiệp vụ Nhân viên & Kiosk**: Xác thực JWT nhân viên, tiếp nhận chấm công khuôn mặt từ Kiosk, tạo đơn xin nghỉ phép (`LeaveRequest`), tra cứu ca/KPI cá nhân, cấp token bảo chứng AI chống giả mạo điểm số. |
 | **5** | **Face-Detect Local Face AI** | `Face-Detect-MERN-Stack/face_detect` | **`8001`** | **Xác thực nhận diện & Độ sống**: Chạy cục bộ mô hình lai YOLOv11 + dlib ResNet + MiniFASNet anti-spoofing (`/predict`, `/liveness-check`), bộ đệm RAM và API làm mới danh bạ vector read-only (`/refresh`, `/sync-mongo`). |
 | **6** | **Face-Detect Employee Portal & Kiosk Web** | `Face-Detect-MERN-Stack/mern/frontend` | **`5173`** | **Giao diện Nhân viên & Trạm Kiosk**: Máy chấm công nhận diện khuôn mặt tự động freeze screen, Cổng Portal cá nhân (bảng chấm công, nộp đơn nghỉ, KPI, lịch ca), Widget hỏi đáp trợ lý ảo. |
 
@@ -31,7 +31,7 @@ Hệ thống kết nối chung 1 cụm MongoDB vật lý (không đổi DB URI h
    - Collection `blockchainlogs`, `aireports`: Ghi nhận nhật ký neo hash Web3 Merkle Root.
 
 2. **Face-Detect Employee Service (Port 5000)** sở hữu quyền ghi:
-   - Collection `attendancerecords`: Ghi nhận lượt chấm công từ Kiosk (`method: 'face'`) và chấm công thủ công (`method: 'manual'`).
+   - Collection `attendancerecords`: Ghi nhận lượt chấm công khuôn mặt từ Kiosk (`method: 'face'`). Các bản ghi `manual` cũ nếu có chỉ phục vụ tra cứu lịch sử.
    - Collection `leaverequests`: Tạo mới đơn xin nghỉ phép của nhân viên (`status: 'pending'`).
 
 3. **Read Model & Báo cáo**:
@@ -48,7 +48,8 @@ Hệ thống kết nối chung 1 cụm MongoDB vật lý (không đổi DB URI h
    - `DELETE /api/users/:id` -> `410 Gone`.
    - `POST /api/ai/register-face` -> `410 Gone`.
 2. **Ngừng cung cấp POST Chấm công trên Central Backend (HTTP 410 Gone)**:
-   - `POST /api/attendance/checkin`, `POST /api/attendance/checkout` -> `410 Gone`.
+   - `POST /api/attendance/checkin`, `POST /api/attendance/checkout` -> `410 Gone`; chấm công thủ công đã ngừng cung cấp, sử dụng Kiosk `/kiosk` trên cổng 5173.
+   - Employee BFF: `POST /api/employee/attendance/checkin`, `POST /api/employee/attendance/checkout` -> `410 Gone` để tương thích với client cũ.
    - `POST /api/attendance/checkin-by-face`, `POST /api/attendance/checkout-by-face` -> `410 Gone`.
    - Giữ nguyên `GET /api/attendance`, `GET /api/attendance/history` và RBAC.
 3. **Chống giả mạo điểm AI bằng payload client & Cơ chế Token Proof riêng biệt**:

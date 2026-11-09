@@ -1,267 +1,119 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink, Link, useNavigate } from 'react-router-dom';
-import { Camera, Sparkles, User, ExternalLink, Clock, LogOut } from 'lucide-react';
+import { NavLink, Link, useLocation, useNavigate } from 'react-router-dom';
+import { Camera, Sparkles, User, ExternalLink, LogOut, ScanFace } from 'lucide-react';
 import { getUser, clearSession } from '../utils/auth';
+import './Navbar.css';
+
+const MANAGER_PORTAL_URL = import.meta.env.VITE_MANAGER_PORTAL_URL || 'http://localhost:3000';
 
 export default function Navbar() {
-  const [backendOnline, setBackendOnline] = useState(false);
   const [currentUser, setCurrentUser] = useState(() => getUser());
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const checkApi = async () => {
-      try {
-        const res = await fetch('/api/health');
-        setBackendOnline(res.ok);
-      } catch {
-        setBackendOnline(false);
-      }
-    };
-    checkApi();
-    const interval = setInterval(checkApi, 12000);
-    return () => clearInterval(interval);
-  }, []);
+  const { pathname } = useLocation();
+  const isPortal = pathname.replace(/\/+$/, '') === '/portal';
 
   useEffect(() => {
     const handleAuthChange = () => setCurrentUser(getUser());
     window.addEventListener('auth:login', handleAuthChange);
     window.addEventListener('auth:logout', handleAuthChange);
+    window.addEventListener('storage', handleAuthChange);
     return () => {
       window.removeEventListener('auth:login', handleAuthChange);
       window.removeEventListener('auth:logout', handleAuthChange);
+      window.removeEventListener('storage', handleAuthChange);
     };
   }, []);
 
-  function handleLogout() {
+  const handleLogout = () => {
     clearSession();
     setCurrentUser(null);
-    navigate('/portal');
-  }
+    navigate('/');
+  };
 
   return (
-    <header
-      style={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 100,
-        backgroundColor: 'rgba(255, 255, 255, 0.88)',
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
-        borderBottom: '1px solid rgba(0, 0, 0, 0.06)',
-        padding: '16px 24px',
-      }}
-    >
-      <div
-        style={{
-          maxWidth: '1280px',
-          margin: '0 auto',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '20px',
-        }}
-      >
+    <header className="app-navbar">
+      <div className="app-navbar-inner">
         {/* Brand Logo */}
         <Link
-          to="/"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            textDecoration: 'none',
-            color: 'var(--text-primary)',
-          }}
+          to={isPortal ? '/portal' : '/'}
+          className="app-navbar-brand"
         >
-          <div
-            style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '10px',
-              backgroundColor: 'var(--text-primary)',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Camera size={18} strokeWidth={2.2} />
+          <div className="app-navbar-brand-logo">
+            <ScanFace size={20} />
           </div>
-          <div>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span
-                style={{
-                  fontSize: '1.125rem',
-                  fontWeight: 700,
-                  letterSpacing: '-0.03em',
-                  fontFamily: 'var(--font-display)',
-                }}
-              >
-                FaceDetect
-              </span>
-              <span
-                style={{
-                  fontSize: '0.6875rem',
-                  fontWeight: 600,
-                  padding: '2px 8px',
-                  borderRadius: '20px',
-                  backgroundColor: '#f4f4f5',
-                  color: '#52525b',
-                  border: '1px solid rgba(0,0,0,0.06)',
-                }}
-              >
-                Employee & Kiosk
-              </span>
+              <span className="app-navbar-brand-title">FaceDetect</span>
+              <span className="app-navbar-brand-tag">MERN Edge</span>
             </div>
           </div>
         </Link>
 
-        {/* Navigation Links */}
-        <nav
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            backgroundColor: '#f7f7f8',
-            padding: '4px',
-            borderRadius: '40px',
-            border: '1px solid rgba(0, 0, 0, 0.06)',
-          }}
-        >
-          <NavLink
-            to="/"
-            end
-            style={({ isActive }) => ({
-              padding: '8px 18px',
-              borderRadius: '40px',
-              fontSize: '0.875rem',
-              fontWeight: isActive ? 600 : 500,
-              textDecoration: 'none',
-              transition: 'all 0.2s ease',
-              color: isActive ? '#1a1a1a' : '#6e7180',
-              backgroundColor: isActive ? '#ffffff' : 'transparent',
-              boxShadow: isActive ? '0 1px 4px rgba(0, 0, 0, 0.06)' : 'none',
-            })}
+        {/* Scrollable Navigation Bar Container (prevent clipped text on mobile) */}
+        <div className="app-navbar-scroll-wrap">
+          <nav
+            className="app-navbar-links"
+            aria-label={isPortal ? 'Điều hướng nhân viên' : 'Điều hướng chính'}
           >
-            Trang chủ
-          </NavLink>
+            {/* {!isPortal && ( */}
+              <NavLink
+                to="/"
+                end
+                className={({ isActive }) => (isActive ? 'active' : '')}
+              >
+                Trang chủ
+              </NavLink>
+            {/* )} */}
+{/*
+            {!isPortal && ( */}
+              <NavLink
+                to="/demo"
+                className={({ isActive }) => (isActive ? 'active' : '')}
+              >
+                <Sparkles size={14} />
+                Thử nghiệm AI
+              </NavLink>
+            {/* )} */}
 
-          <NavLink
-            to="/demo"
-            style={({ isActive }) => ({
-              padding: '8px 18px',
-              borderRadius: '40px',
-              fontSize: '0.875rem',
-              fontWeight: isActive ? 600 : 500,
-              textDecoration: 'none',
-              transition: 'all 0.2s ease',
-              color: isActive ? '#1a1a1a' : '#6e7180',
-              backgroundColor: isActive ? '#ffffff' : 'transparent',
-              boxShadow: isActive ? '0 1px 4px rgba(0, 0, 0, 0.06)' : 'none',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-            })}
-          >
-            <Sparkles size={14} />
-            Thử nghiệm AI
-          </NavLink>
+            <NavLink
+              to="/kiosk"
+              className={({ isActive }) => (isActive ? 'active' : '')}
+            >
+              <Camera size={14} />
+              Thử nghiệm Kiosk thực tế
+            </NavLink>
 
-          <NavLink
-            to="/kiosk"
-            style={({ isActive }) => ({
-              padding: '8px 18px',
-              borderRadius: '40px',
-              fontSize: '0.875rem',
-              fontWeight: isActive ? 600 : 500,
-              textDecoration: 'none',
-              transition: 'all 0.2s ease',
-              color: isActive ? '#1a1a1a' : '#6e7180',
-              backgroundColor: isActive ? '#ffffff' : 'transparent',
-              boxShadow: isActive ? '0 1px 4px rgba(0, 0, 0, 0.06)' : 'none',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-            })}
-          >
-            <Clock size={14} />
-            Máy chấm công Kiosk
-          </NavLink>
-
-          <NavLink
-            to="/portal"
-            style={({ isActive }) => ({
-              padding: '8px 18px',
-              borderRadius: '40px',
-              fontSize: '0.875rem',
-              fontWeight: isActive ? 600 : 500,
-              textDecoration: 'none',
-              transition: 'all 0.2s ease',
-              color: isActive ? '#1a1a1a' : '#6e7180',
-              backgroundColor: isActive ? '#ffffff' : 'transparent',
-              boxShadow: isActive ? '0 1px 4px rgba(0, 0, 0, 0.06)' : 'none',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-            })}
-          >
-            <User size={14} />
-            Cổng Nhân Viên
-          </NavLink>
-        </nav>
+            {/* <NavLink
+              to="/portal"
+              className={({ isActive }) => (isActive ? 'active' : '')}
+            >
+              <User size={14} />
+              {isPortal ? 'Hồ sơ cá nhân' : 'Cổng Nhân Viên'}
+            </NavLink> */}
+          </nav>
+        </div>
 
         {/* Right Action & External Links */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {/* User info if logged in */}
+        <div className="app-navbar-actions">
           {currentUser ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div
-                style={{
-                  fontSize: '0.8125rem',
-                  fontWeight: 600,
-                  color: '#1a1a1a',
-                  padding: '6px 12px',
-                  backgroundColor: '#f4f4f5',
-                  borderRadius: '20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                }}
-              >
-                <span style={{ color: '#16a34a' }}>●</span>
-                <span>{currentUser.fullName}</span>
-                <span style={{ color: '#9295a3', fontWeight: 400 }}>({currentUser.employeeCode})</span>
+              <div className="app-navbar-user-badge">
+                {currentUser.fullName || currentUser.username}
               </div>
               <button
                 onClick={handleLogout}
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '50%',
-                  border: '1px solid rgba(0,0,0,0.1)',
-                  backgroundColor: '#ffffff',
-                  color: '#6e7180',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                }}
+                className="app-navbar-btn-logout"
                 title="Đăng xuất"
               >
-                <LogOut size={14} />
+                <LogOut size={13} />
+                <span>Thoát</span>
               </button>
             </div>
           ) : (
             <Link
               to="/portal"
-              style={{
-                fontSize: '0.875rem',
-                fontWeight: 600,
-                color: '#1a1a1a',
-                textDecoration: 'none',
-                padding: '8px 16px',
-                borderRadius: '40px',
-                border: '1px solid rgba(0,0,0,0.12)',
-              }}
+              className="btn-primary"
+              style={{ padding: '8px 18px', fontSize: '0.8125rem' }}
             >
               Đăng nhập
             </Link>
@@ -269,25 +121,13 @@ export default function Navbar() {
 
           {/* External Link to Manager Portal */}
           <a
-            href="http://localhost:3000"
+            className="app-navbar-manager-link"
+            href={MANAGER_PORTAL_URL}
             target="_blank"
             rel="noreferrer"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 16px',
-              borderRadius: '40px',
-              backgroundColor: '#1a1a1a',
-              color: '#ffffff',
-              fontSize: '0.8125rem',
-              fontWeight: 600,
-              textDecoration: 'none',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-            }}
             title="Mở Cổng Quản Trị dành cho Quản lý & Admin (AIAttendanceWeb3)"
           >
-            <span>Cổng Quản Trị</span>
+            <span>{isPortal ? 'Quản lý' : 'Cổng Quản Trị'}</span>
             <ExternalLink size={13} />
           </a>
         </div>

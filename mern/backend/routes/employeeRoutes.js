@@ -1,8 +1,6 @@
 import { Router } from 'express';
 import {
   getMyAttendance,
-  checkInManual,
-  checkOutManual,
   getMyLeaveRequests,
   createMyLeaveRequest,
   getMyShifts,
@@ -17,8 +15,6 @@ router.use(authMiddleware);
 
 // Báo cáo ngày đi làm & chấm công cá nhân
 router.get('/attendance', getMyAttendance);
-router.post('/attendance/checkin', checkInManual);
-router.post('/attendance/checkout', checkOutManual);
 
 // Đơn nghỉ phép
 router.get('/leave-requests', getMyLeaveRequests);

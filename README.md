@@ -220,7 +220,6 @@ Hệ thống Frontend được chế tác tỉ mỉ dựa trên bản thiết k�
 *   **Trang Chủ (`/`)**: Hero Video hiệu ứng `scaleY(-1)`, typography chuẩn quốc tế kết hợp *Geist* và *Instrument Serif*, hiệu ứng Zig-zag tương phản cao.
 *   **Phòng Thử Nghiệm AI (`/demo`)**:
     - **Webcam Trực Tiếp (Live AI)**: Bắt trọn tọa độ khuôn mặt, khung nhận diện đổi màu theo tính xác thực (**Xanh lá**: Người thật hợp lệ; **Đỏ**: Cảnh báo màn hình/ảnh in giả mạo; **Cam**: Chưa đăng ký).
-    - **Tải Ảnh Phân Tích**: Hỗ trợ kiểm thử ảnh tĩnh có sẵn trong máy.
     - **Đăng Ký Khuôn Mặt Mới (MongoDB)**: Hướng dẫn người dùng chụp 5 góc mặt tiêu chuẩn và lưu tức thì vector vào MongoDB Atlas mà không cần khởi động lại máy chủ.
 *   **Bảng Điều Khiển Quản Trị (`/admin`)**: Giám sát lịch sử chấm công, phân loại trạng thái đã nạp vector khuôn mặt và cập nhật hồ sơ tức thì.
 

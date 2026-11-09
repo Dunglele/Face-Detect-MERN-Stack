@@ -6,7 +6,7 @@ import {
   KpiTask,
   User,
 } from '../models/index.js';
-import { localYMD, localHHMM, toWorkDate, atLocalTime } from '../lib/time.js';
+import { localYMD, localHHMM, toWorkDate } from '../lib/time.js';
 
 // ==========================================
 // 1. BÁO CÁO CHẤM CÔNG CÁ NHÂN (DẠNG BẢNG)
@@ -93,119 +93,6 @@ export async function getMyAttendance(req, res) {
   } catch (err) {
     console.error('getMyAttendance error:', err);
     return res.status(500).json({ error: 'Lỗi khi tải lịch sử chấm công: ' + err.message });
-  }
-}
-
-// Chấm công vào thủ công
-export async function checkInManual(req, res) {
-  try {
-    const userId = req.user._id;
-    const todayYmd = localYMD(new Date());
-    const workDate = toWorkDate(todayYmd);
-
-    // Kiểm tra đã check-in hôm nay chưa
-    const existing = await AttendanceRecord.findOne({ userId, workDate });
-    if (existing?.checkInAt) {
-      return res.status(409).json({
-        error: `Bạn đã chấm công vào hôm nay lúc ${localHHMM(existing.checkInAt)}.`,
-      });
-    }
-
-    // Tìm phân ca của nhân viên
-    const assignment = await ShiftAssignment.findOne({ userId, workDate }).populate('shiftId');
-    let shift = assignment?.shiftId;
-
-    if (!shift) {
-      // Nếu chưa phân ca cụ thể, lấy ca mặc định CA_SANG
-      shift = await Shift.findOne({ code: 'CA_SANG' });
-    }
-
-    const now = new Date();
-    const startTimeStr = shift?.startTime || '08:00';
-    const graceMin = shift?.graceMinutes ?? 5;
-    const deadline = atLocalTime(todayYmd, startTimeStr, graceMin);
-    const lateMinutes = Math.max(0, Math.round((now.getTime() - deadline.getTime()) / 60000));
-    const status = lateMinutes > 0 ? 'late' : 'on_time';
-
-    const record = await AttendanceRecord.findOneAndUpdate(
-      { userId, workDate },
-      {
-        userId,
-        departmentId: req.user.departmentId,
-        shiftId: shift?._id,
-        workDate,
-        checkInAt: now,
-        status,
-        lateMinutes,
-        method: 'manual',
-      },
-      { upsert: true, returnDocument: 'after' }
-    );
-
-    return res.status(201).json({
-      success: true,
-      data: record,
-      message:
-        lateMinutes > 0
-          ? `Đã chấm công vào lúc ${localHHMM(now)}, đi muộn ${lateMinutes} phút.`
-          : `Đã chấm công vào lúc ${localHHMM(now)}, đúng giờ. Chúc bạn ngày làm việc vui vẻ!`,
-    });
-  } catch (err) {
-    return res.status(500).json({ error: 'Lỗi khi chấm công vào: ' + err.message });
-  }
-}
-
-// Chấm công ra thủ công
-export async function checkOutManual(req, res) {
-  try {
-    const userId = req.user._id;
-    const todayYmd = localYMD(new Date());
-    const workDate = toWorkDate(todayYmd);
-
-    const record = await AttendanceRecord.findOne({ userId, workDate }).populate('shiftId');
-    if (!record || !record.checkInAt) {
-      return res.status(400).json({ error: 'Bạn chưa chấm công vào hôm nay, không thể chấm công ra.' });
-    }
-    if (record.checkOutAt) {
-      return res.status(409).json({
-        error: `Bạn đã chấm công ra hôm nay lúc ${localHHMM(record.checkOutAt)}.`,
-      });
-    }
-
-    const shift = record.shiftId || (await Shift.findOne({ code: 'CA_SANG' }));
-    const now = new Date();
-    const endTimeStr = shift?.endTime || '17:00';
-    const earlyThreshold = shift?.earlyLeaveThresholdMin ?? 15;
-    const earlyDeadline = atLocalTime(todayYmd, endTimeStr, -earlyThreshold);
-    const earlyLeaveMinutes = Math.max(0, Math.round((earlyDeadline.getTime() - now.getTime()) / 60000));
-
-    let status = record.status;
-    if (earlyLeaveMinutes > 0) {
-      status = 'early_leave';
-    }
-
-    const breakMin = shift?.breakMinutes || 60;
-    const workedMinutes = Math.max(
-      0,
-      Math.round((now.getTime() - record.checkInAt.getTime()) / 60000) - breakMin
-    );
-
-    record.checkOutAt = now;
-    record.earlyLeaveMinutes = earlyLeaveMinutes;
-    record.workedMinutes = workedMinutes;
-    record.status = status;
-    await record.save();
-
-    return res.json({
-      success: true,
-      data: record,
-      message:
-        earlyLeaveMinutes > 0
-          ? `Đã chấm công ra lúc ${localHHMM(now)}, về sớm ${earlyLeaveMinutes} phút.`
-          : `Đã chấm công ra lúc ${localHHMM(now)}, đủ giờ làm việc. Tạm biệt bạn!`,
-    });
-  } catch (err) {
-    return res.status(500).json({ error: 'Lỗi khi chấm công ra: ' + err.message });
   }
 }
 

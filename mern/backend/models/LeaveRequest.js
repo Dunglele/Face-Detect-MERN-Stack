@@ -23,6 +23,7 @@ const schema = new mongoose.Schema(
     toDate: { type: Date, required: true },
     numDays: { type: Number, required: true },
     reasonText: { type: String, required: true },
+    chatbotRequestKey: { type: String, default: undefined },
 
     nlu: { type: nluSchema, default: () => ({}) },
 
@@ -36,6 +37,7 @@ const schema = new mongoose.Schema(
 
 schema.index({ userId: 1, fromDate: 1 });
 schema.index({ status: 1, fromDate: 1 });
+schema.index({ chatbotRequestKey: 1 }, { unique: true, sparse: true });
 
 export const LeaveRequest = mongoose.models.LeaveRequest || mongoose.model('LeaveRequest', schema);
 export default LeaveRequest;

@@ -4,7 +4,6 @@ import {
   Clock,
   FileText,
   Target,
-  CheckCircle,
   AlertCircle,
   LogOut,
   Plus,
@@ -12,10 +11,9 @@ import {
   Building,
   ArrowRight,
   Sparkles,
-  Camera,
-  Coffee,
 } from 'lucide-react';
 import { getToken, getUser, setSession, clearSession, authFetch } from '../utils/auth';
+import EmployeeOverview from '../components/EmployeeOverview';
 
 const DEMO_ACCOUNTS = [
   { code: 'NV002', name: 'Nhân viên mẫu (SX)', pass: 'matkhau123' },
@@ -730,7 +728,7 @@ function AttendanceContributionGraph({ month, records = [], loading = false, err
 
 export default function PortalPage() {
   const [user, setUser] = useState(() => getUser());
-  const [activeTab, setActiveTab] = useState('attendance'); // 'attendance' | 'leaves' | 'shifts' | 'kpis'
+  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'attendance' | 'leaves' | 'shifts' | 'kpis'
 
   // Login Form States
   const [loginCode, setLoginCode] = useState('');
@@ -743,12 +741,11 @@ export default function PortalPage() {
   const [attendanceData, setAttendanceData] = useState({ stats: {}, data: [] });
   const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [attendanceError, setAttendanceError] = useState('');
-  const [actionMsg, setActionMsg] = useState({ type: '', text: '' });
-  const [actionLoading, setActionLoading] = useState(false);
 
   // Leave Requests States
   const [leaveData, setLeaveData] = useState({ leaveQuota: {}, data: [] });
   const [leaveLoading, setLeaveLoading] = useState(false);
+  const [leaveError, setLeaveError] = useState('');
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [newLeave, setNewLeave] = useState({
     type: 'annual',
@@ -760,7 +757,12 @@ export default function PortalPage() {
 
   // Shifts & KPI States
   const [shiftsData, setShiftsData] = useState([]);
+  const [shiftsMonth, setShiftsMonth] = useState('');
+  const [shiftsLoading, setShiftsLoading] = useState(false);
+  const [shiftsError, setShiftsError] = useState('');
   const [kpiData, setKpiData] = useState({ overallProgress: 0, data: [] });
+  const [kpiLoading, setKpiLoading] = useState(false);
+  const [kpiError, setKpiError] = useState('');
 
   // Sync session on mount or change & listen for auth:logout
   useEffect(() => {
@@ -815,14 +817,18 @@ export default function PortalPage() {
   // Load Leaves
   async function loadLeaves() {
     setLeaveLoading(true);
+    setLeaveError('');
     try {
       const res = await authFetch('/api/employee/leave-requests');
       const data = await res.json();
-      if (data.success) {
+      if (res.ok && data.success) {
         setLeaveData(data);
+      } else {
+        setLeaveError(extractErrorMessage(data, 'Không thể tải đơn nghỉ'));
       }
     } catch (e) {
       console.error(e);
+      setLeaveError(e.message || 'Không thể tải đơn nghỉ');
     } finally {
       setLeaveLoading(false);
     }
@@ -830,28 +836,50 @@ export default function PortalPage() {
 
   // Load Shifts
   async function loadShifts() {
+    setShiftsLoading(true);
+    setShiftsError('');
     try {
       const res = await authFetch(`/api/employee/shifts?month=${selectedMonth}`);
       const data = await res.json();
-      if (data.success) {
+      if (res.ok && data.success) {
         setShiftsData(data.data || []);
+        setShiftsMonth(data.month || selectedMonth);
+      } else {
+        setShiftsError(extractErrorMessage(data, 'Không thể tải lịch ca'));
       }
     } catch (e) {
       console.error(e);
+      setShiftsError(e.message || 'Không thể tải lịch ca');
+    } finally {
+      setShiftsLoading(false);
     }
   }
 
   // Load KPIs
   async function loadKpis() {
+    setKpiLoading(true);
+    setKpiError('');
     try {
       const res = await authFetch('/api/employee/kpi');
       const data = await res.json();
-      if (data.success) {
+      if (res.ok && data.success) {
         setKpiData(data);
+      } else {
+        setKpiError(extractErrorMessage(data, 'Không thể tải KPI'));
       }
     } catch (e) {
       console.error(e);
+      setKpiError(e.message || 'Không thể tải KPI');
+    } finally {
+      setKpiLoading(false);
     }
+  }
+
+  function navigateTab(tab) {
+    if (tab === 'overview' && selectedMonth !== getVietnamCurrentMonth()) {
+      setSelectedMonth(getVietnamCurrentMonth());
+    }
+    setActiveTab(tab);
   }
 
   // Login handler
@@ -886,73 +914,6 @@ export default function PortalPage() {
     clearSession();
     setUser(null);
     window.dispatchEvent(new Event('auth:logout'));
-  }
-
-  // Quick check-in/check-out
-  async function handleCheckIn() {
-    if (actionLoading) return;
-    setActionLoading(true);
-    setActionMsg({ type: '', text: '' });
-    try {
-      const res = await authFetch('/api/employee/attendance/checkin', { method: 'POST' });
-      let data = null;
-      try {
-        data = await res.json();
-      } catch (e) {
-        data = null;
-      }
-
-      if (!res.ok || !data?.success) {
-        const errorText = extractErrorMessage(data, `Check-in thất bại (HTTP ${res.status})`);
-        throw new Error(errorText);
-      }
-
-      setActionMsg({ type: 'success', text: data.message || 'Check-in thành công!' });
-
-      const currentVNMonth = getVietnamCurrentMonth();
-      if (selectedMonth !== currentVNMonth) {
-        setSelectedMonth(currentVNMonth);
-      } else {
-        loadAttendance(currentVNMonth);
-      }
-    } catch (err) {
-      setActionMsg({ type: 'error', text: err.message || 'Lỗi khi thực hiện check-in' });
-    } finally {
-      setActionLoading(false);
-    }
-  }
-
-  async function handleCheckOut() {
-    if (actionLoading) return;
-    setActionLoading(true);
-    setActionMsg({ type: '', text: '' });
-    try {
-      const res = await authFetch('/api/employee/attendance/checkout', { method: 'POST' });
-      let data = null;
-      try {
-        data = await res.json();
-      } catch (e) {
-        data = null;
-      }
-
-      if (!res.ok || !data?.success) {
-        const errorText = extractErrorMessage(data, `Check-out thất bại (HTTP ${res.status})`);
-        throw new Error(errorText);
-      }
-
-      setActionMsg({ type: 'success', text: data.message || 'Check-out thành công!' });
-
-      const currentVNMonth = getVietnamCurrentMonth();
-      if (selectedMonth !== currentVNMonth) {
-        setSelectedMonth(currentVNMonth);
-      } else {
-        loadAttendance(currentVNMonth);
-      }
-    } catch (err) {
-      setActionMsg({ type: 'error', text: err.message || 'Lỗi khi thực hiện check-out' });
-    } finally {
-      setActionLoading(false);
-    }
   }
 
   // Submit Leave Request
@@ -1170,7 +1131,7 @@ export default function PortalPage() {
           marginBottom: '28px',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div className="employee-portal__identity" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <div
             style={{
               width: '56px',
@@ -1215,38 +1176,8 @@ export default function PortalPage() {
           </div>
         </div>
 
-        {/* Quick Check-in/Check-out Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <button
-            onClick={handleCheckIn}
-            disabled={actionLoading}
-            className="btn-primary"
-            style={{
-              padding: '10px 20px',
-              borderRadius: '40px',
-              fontSize: '0.875rem',
-              opacity: actionLoading ? 0.7 : 1,
-              cursor: actionLoading ? 'not-allowed' : 'pointer',
-            }}
-          >
-            <Clock size={16} />
-            {actionLoading ? 'Đang xử lý...' : 'Check-in vào ca'}
-          </button>
-          <button
-            onClick={handleCheckOut}
-            disabled={actionLoading}
-            className="btn-secondary"
-            style={{
-              padding: '10px 20px',
-              borderRadius: '40px',
-              fontSize: '0.875rem',
-              opacity: actionLoading ? 0.7 : 1,
-              cursor: actionLoading ? 'not-allowed' : 'pointer',
-            }}
-          >
-            <Coffee size={16} />
-            {actionLoading ? 'Đang xử lý...' : 'Check-out ra ca'}
-          </button>
+        {/* Account action */}
+        <div className="employee-portal__actions" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <button
             onClick={handleLogout}
             style={{
@@ -1268,29 +1199,9 @@ export default function PortalPage() {
         </div>
       </div>
 
-      {/* Action Notification */}
-      {actionMsg.text && (
-        <div
-          style={{
-            padding: '14px 20px',
-            borderRadius: '16px',
-            backgroundColor: actionMsg.type === 'success' ? '#f0fdf4' : '#fef2f2',
-            border: `1px solid ${actionMsg.type === 'success' ? '#bbf7d0' : '#fee2e2'}`,
-            color: actionMsg.type === 'success' ? '#166534' : '#991b1b',
-            fontSize: '0.875rem',
-            marginBottom: '24px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-          }}
-        >
-          {actionMsg.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
-          <span>{actionMsg.text}</span>
-        </div>
-      )}
-
       {/* Tab Navigation Menu */}
       <div
+        className="employee-portal__tabs"
         style={{
           display: 'flex',
           gap: '8px',
@@ -1300,6 +1211,7 @@ export default function PortalPage() {
         }}
       >
         {[
+          { key: 'overview', label: 'Tổng quan', icon: Sparkles },
           { key: 'attendance', label: 'Bảng Chấm Công', icon: Calendar },
           { key: 'leaves', label: 'Đơn Nghỉ Phép', icon: FileText },
           { key: 'shifts', label: 'Ca Làm Việc Của Tôi', icon: Clock },
@@ -1310,7 +1222,7 @@ export default function PortalPage() {
           return (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => navigateTab(tab.key)}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -1332,6 +1244,26 @@ export default function PortalPage() {
           );
         })}
       </div>
+
+      {activeTab === 'overview' && (
+        <EmployeeOverview
+          attendanceData={attendanceData}
+          attendanceLoading={attendanceLoading}
+          attendanceError={attendanceError}
+          leaveData={leaveData}
+          leaveLoading={leaveLoading}
+          leaveError={leaveError}
+          shiftsData={shiftsData}
+          shiftsMonth={shiftsMonth}
+          shiftsLoading={shiftsLoading}
+          shiftsError={shiftsError}
+          kpiData={kpiData}
+          kpiLoading={kpiLoading}
+          kpiError={kpiError}
+          onNavigate={navigateTab}
+          onCreateLeave={() => setShowLeaveModal(true)}
+        />
+      )}
 
       {/* ======================================================== */}
       {/* TAB 1: BẢNG CHẤM CÔNG DẠNG BẢNG (ATTENDANCE REPORT TABLE) */}

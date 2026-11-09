@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import ChatWidget from './components/ChatWidget';
 import LandingPage from './pages/LandingPage';
@@ -7,6 +7,8 @@ import DemoPage from './pages/DemoPage';
 import KioskPage from './pages/KioskPage';
 import PortalPage from './pages/PortalPage';
 import { ExternalLink } from 'lucide-react';
+
+const MANAGER_PORTAL_URL = import.meta.env.VITE_MANAGER_PORTAL_URL || 'http://localhost:3000';
 
 // Trang thông báo chuyển hướng Admin sang AIAttendanceWeb3
 function AdminRedirectPage() {
@@ -23,7 +25,7 @@ function AdminRedirectPage() {
       </p>
       <div style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
         <a
-          href="http://localhost:3000"
+          href={MANAGER_PORTAL_URL}
           className="btn-primary"
           style={{ padding: '12px 24px', borderRadius: '40px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
         >
@@ -35,29 +37,31 @@ function AdminRedirectPage() {
   );
 }
 
-export default function App() {
+function AppContent() {
+  const { pathname } = useLocation();
+  const routePath = pathname.replace(/\/+$/, '') || '/';
+  const isKiosk = routePath === '/kiosk';
+  const isPortal = routePath === '/portal';
+  const hasMarketingFooter = routePath === '/' || routePath === '/demo';
+
   return (
-    <BrowserRouter>
-      <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', backgroundColor: '#ffffff' }}>
-        {/* Minimalist White Header */}
-        <Navbar />
+    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', backgroundColor: '#ffffff' }}>
+      {!isKiosk && <Navbar />}
 
-        {/* Route Pages */}
-        <main style={{ flex: 1, position: 'relative' }}>
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/demo" element={<DemoPage />} />
-            <Route path="/kiosk" element={<KioskPage />} />
-            <Route path="/portal" element={<PortalPage />} />
-            <Route path="/admin" element={<AdminRedirectPage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </main>
+      <main style={{ flex: 1, position: 'relative' }}>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/demo" element={<DemoPage />} />
+          <Route path="/kiosk" element={<KioskPage />} />
+          <Route path="/portal" element={<PortalPage />} />
+          <Route path="/admin" element={<AdminRedirectPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </main>
 
-        {/* Floating AI PhoBERT Chatbot Assistant */}
-        <ChatWidget />
+      {isPortal && <ChatWidget />}
 
-        {/* Minimalist Editorial Footer */}
+      {hasMarketingFooter && (
         <footer
           style={{
             borderTop: '1px solid var(--border-subtle)',
@@ -92,7 +96,15 @@ export default function App() {
             </div>
           </div>
         </footer>
-      </div>
+      )}
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AppContent />
     </BrowserRouter>
   );
 }
