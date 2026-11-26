@@ -51,6 +51,8 @@ export async function handleChat(req, res) {
         answer: data.answer.trim(),
         intent: data.intent || null,
         intentConfidence: typeof data.intentConfidence === 'number' ? data.intentConfidence : null,
+        ...(typeof data.status === 'string' ? { status: data.status } : {}),
+        ...(Object.hasOwn(data, 'answerData') ? { answerData: data.answerData } : {}),
       });
     } catch (error) {
       if (error.response) {

@@ -381,3 +381,18 @@ test('actual Express chat route: rejects missing, malformed, or expired/invalid 
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+
+test('legacy chat proxy preserves optional status and daily range answerData without changing existing keys', async () => {
+  const originalPost = axios.post;
+  const series = {kind:'daily_series',range:{fromDate:'2026-11-01',toDate:'2026-11-02',timeZone:'Asia/Ho_Chi_Minh'},days:[{workDate:'2026-11-01',count:1},{workDate:'2026-11-02',count:0}]};
+  try {
+    for (const upstream of [{answer:'Daily results',intent:'count_late',intentConfidence:.96,status:'ok',answerData:series},{answer:'Please clarify',intent:'out_of_scope',intentConfidence:.4,status:'clarification',answerData:null}]) {
+      axios.post=async()=>({status:200,data:upstream});
+      let returned;
+      const res={status(){return this;},json(value){returned=value;return this;}};
+      await handleChat({body:{message:'Query'},headers:{authorization:'Bearer test'}},res);
+      assert.deepEqual(returned,upstream);
+    }
+  } finally {axios.post=originalPost;}
+});

@@ -247,3 +247,9 @@
     align-items: flex-start;
   }
 }
+
+.guided-table-scroll { max-width: 100%; overflow-x: auto; margin-top: 7px; }
+.guided-daily-table { width: 100%; border-collapse: collapse; font-size: 12px; white-space: normal; }
+.guided-daily-table caption { text-align: left; padding-bottom: 6px; font-weight: 600; }
+.guided-daily-table th, .guided-daily-table td { border: 1px solid var(--border, #d1d5db); padding: 6px; text-align: left; vertical-align: top; }
+.guided-daily-table th:first-child { white-space: nowrap; }

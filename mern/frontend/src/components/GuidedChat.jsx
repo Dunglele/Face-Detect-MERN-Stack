@@ -13,6 +13,8 @@ function Field({ field, value, onChange, disabled }) {
     id: `chat-field-${field.name}`,
     name: field.name,
     required: Boolean(field.required),
+    ...(field.min ? { min: field.min } : {}),
+    ...(field.max ? { max: field.max } : {}),
     disabled,
     value: value ?? '',
     onChange: (event) => onChange(field.name, event.target.value),
@@ -41,13 +43,33 @@ function Field({ field, value, onChange, disabled }) {
 
 function ResultData({ data }) {
   if (data == null) return null;
-  const labels = { date: 'Ngày', status: 'Trạng thái', checkIn: 'Giờ vào', checkOut: 'Giờ ra', lateMinutes: 'Phút trễ', shift: 'Ca', startTime: 'Bắt đầu', endTime: 'Kết thúc', fromDate: 'Từ ngày', toDate: 'Đến ngày', days: 'Số ngày', type: 'Loại', reason: 'Lý do', title: 'Tên', progress: 'Tiến độ', deadline: 'Hạn', count: 'Số lượng', workdays: 'Ngày công', assignedHours: 'Giờ được phân ca', id: 'Mã' };
+  const labels = { date: 'Ngày', status: 'Trạng thái', checkIn: 'Giờ vào', checkOut: 'Giờ ra', lateMinutes: 'Phút trễ', shift: 'Ca', startTime: 'Bắt đầu', endTime: 'Kết thúc', fromDate: 'Từ ngày', range: 'Khoảng thời gian', timeZone: 'Múi giờ', toDate: 'Đến ngày', days: 'Số ngày', type: 'Loại', reason: 'Lý do', title: 'Tên', progress: 'Tiến độ', deadline: 'Hạn', count: 'Số lượng', workdays: 'Ngày công', assignedHours: 'Giờ được phân ca', id: 'Mã' };
   const readable = (value) => {
     if (value == null) return '';
     if (typeof value !== 'object') return String(value);
     if (Array.isArray(value)) return value.map(readable).filter(Boolean).join(', ');
-    return Object.entries(value).filter(([, part]) => part != null && typeof part !== 'object').map(([key, part]) => `${labels[key] || key}: ${part}`).join(' · ');
+    return Object.entries(value).filter(([, part]) => part != null).map(([key, part]) => `${labels[key] || key}: ${readable(part)}`).join(' · ');
   };
+  if (data.kind === 'daily_series' && Array.isArray(data.days)) {
+    const hasEmployees = data.days.some(day => Array.isArray(day.employees));
+    return (
+      <div className="guided-daily-results">
+        <p>{data.range?.fromDate} – {data.range?.toDate} · {data.range?.timeZone || 'Asia/Ho_Chi_Minh'}</p>
+        <div className="guided-table-scroll" tabIndex={0} role="region" aria-label="Kết quả theo ngày">
+          <table className="guided-daily-table">
+            <caption>Số lượng riêng từng ngày</caption>
+            <thead><tr><th scope="col">Ngày</th><th scope="col">Số lượng</th>{hasEmployees && <th scope="col">Nhân viên</th>}</tr></thead>
+            <tbody>{data.days.map(day => (
+              <tr key={day.workDate}>
+                <th scope="row">{day.workDate}</th><td>{day.count}</td>
+                {hasEmployees && <td>{(day.employees || []).length === 0 ? 'Không có' : day.employees.map(employee => `${employee.fullName || ''}${employee.employeeCode ? ` (${employee.employeeCode})` : ''}${employee.lateMinutes !== undefined ? ` · trễ ${employee.lateMinutes} phút` : ''}`).join('; ')}</td>}
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
   if (Array.isArray(data)) {
     return <ul className="guided-data-list">{data.map((item, index) => <li key={index}>{readable(item)}</li>)}</ul>;
   }
@@ -192,7 +214,7 @@ export default function GuidedChat({ request, enabled = true, welcome = 'Chọn 
                 <button key={option.actionId} type="button" onClick={() => choose(option)} disabled={!enabled || busy || !interactive}>{option.label}</button>
               ))}</div>}
               {type === 'form' && Array.isArray(message.fields) && <form onSubmit={(event) => submitForm(event, message)} className="guided-form">
-                {message.fields.map((field) => <Field key={field.name} field={field} value={formValues[field.name]} onChange={(name, value) => setFormValues((previous) => ({ ...previous, [name]: value }))} disabled={!enabled || busy || !interactive} />)}
+                {message.fields.map((field) => <Field key={field.name} field={{ ...field, ...(field.name === 'fromDate' && formValues.toDate ? { max: formValues.toDate } : {}), ...(field.name === 'toDate' && formValues.fromDate ? { min: formValues.fromDate } : {}) }} value={formValues[field.name]} onChange={(name, value) => setFormValues((previous) => ({ ...previous, [name]: value }))} disabled={!enabled || busy || !interactive} />)}
                 <button type="submit" disabled={!enabled || busy || !interactive}>Tiếp tục</button>
               </form>}
             </div>
